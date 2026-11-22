@@ -26,33 +26,36 @@ def ff(*args):
 
 
 # 1) frames -> silent video (concat demuxer with real per-frame durations)
-frames = sorted(os.listdir(FRAMES), key=lambda f: float(f[:-4]))
-stamps = [float(f[:-4]) for f in frames]
-# the frame on screen at t0 is the last one painted at or before it
-first = max([i for i, s in enumerate(stamps) if s <= t0] or [0])
-lines = []
-for i in range(first, len(frames)):
-    start = max(stamps[i], t0)
-    stop = stamps[i + 1] if i + 1 < len(frames) else m["end"]
-    stop = min(stop, m["end"])
-    if stop <= start:
-        continue
-    lines.append(f"file '{os.path.join(FRAMES, frames[i])}'".replace("\\", "/"))
-    lines.append(f"duration {stop - start:.6f}")
-lines.append(lines[-2])  # concat demuxer needs the last file repeated
-listfile = os.path.join(OUT, "frames.txt")
-open(listfile, "w").write("\n".join(lines) + "\n")
+AUDIO_ONLY = "--audio" in sys.argv  # keep the existing cut, only redo the mix
 silent = os.path.join(OUT, "video_silent.mp4")
-ff("-f", "concat", "-safe", "0", "-i", listfile,
-   "-vf", "fps=30,scale=1920:1080:flags=lanczos,format=yuv420p",
-   "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-tune", "stillimage",
-   "-t", f"{total:.3f}", silent)
-print(f"video  {total:.1f}s  ({len(lines)//2} frames)")
+if not AUDIO_ONLY:
+    frames = sorted(os.listdir(FRAMES), key=lambda f: float(f[:-4]))
+    stamps = [float(f[:-4]) for f in frames]
+    # the frame on screen at t0 is the last one painted at or before it
+    first = max([i for i, s in enumerate(stamps) if s <= t0] or [0])
+    lines = []
+    for i in range(first, len(frames)):
+        start = max(stamps[i], t0)
+        stop = stamps[i + 1] if i + 1 < len(frames) else m["end"]
+        stop = min(stop, m["end"])
+        if stop <= start:
+            continue
+        lines.append(f"file '{os.path.join(FRAMES, frames[i])}'".replace("\\", "/"))
+        lines.append(f"duration {stop - start:.6f}")
+    lines.append(lines[-2])  # concat demuxer needs the last file repeated
+    listfile = os.path.join(OUT, "frames.txt")
+    open(listfile, "w").write("\n".join(lines) + "\n")
+    silent = os.path.join(OUT, "video_silent.mp4")
+    ff("-f", "concat", "-safe", "0", "-i", listfile,
+       "-vf", "fps=30,scale=1920:1080:flags=lanczos,format=yuv420p",
+       "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-tune", "stillimage",
+       "-t", f"{total:.3f}", silent)
+    print(f"video  {total:.1f}s  ({len(lines)//2} frames)")
 
 # 2) original score
 os.makedirs(AUD, exist_ok=True)
-subprocess.run([sys.executable, os.path.join(HERE, "audio.py"), AUD, f"{total:.2f}", "cinematic"], check=True,
-               stdout=subprocess.DEVNULL)
+subprocess.run([sys.executable, os.path.join(HERE, "music.py"), os.path.join(AUD, "music.wav"), f"{total:.2f}"],
+               check=True, stdout=subprocess.DEVNULL)
 
 # 3) mix: narration on markers, score ducked underneath
 inputs, filters, labels = ["-i", os.path.join(AUD, "music.wav")], [], []
@@ -64,8 +67,8 @@ for k, sc in enumerate(m["scenes"], start=1):
 n = len(labels)
 filters.append(f"{''.join(labels)}amix=inputs={n}:normalize=0,apad,atrim=0:{total:.3f}[vo]")
 filters.append("[vo]asplit=2[vo1][vosc]")
-filters.append(f"[0:a]atrim=0:{total:.3f},volume=0.30[mus]")
-filters.append("[mus][vosc]sidechaincompress=threshold=0.015:ratio=10:attack=15:release=450[duck]")
+filters.append(f"[0:a]atrim=0:{total:.3f},volume=0.11[mus]")
+filters.append("[mus][vosc]sidechaincompress=threshold=0.01:ratio=14:attack=10:release=700:makeup=1[duck]")
 filters.append(f"[duck][vo1]amix=inputs=2:normalize=0,afade=t=out:st={total-1.6:.2f}:d=1.5,loudnorm=I=-16:TP=-1.5:LRA=11[mix]")
 mix = os.path.join(OUT, "mix.wav")
 ff(*inputs, "-filter_complex", ";".join(filters), "-map", "[mix]", "-ar", "48000", "-t", f"{total:.3f}", mix)
