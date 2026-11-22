@@ -2,11 +2,29 @@
 
 > **Built for `#BuildHybridAI 2026`** · Live Demo: **https://cloakvault-hybrid.web.app** · Powered by **Firebase AI Logic** (On-Device Gemini Nano + Cloud `gemini-3.5-flash-lite` Fallback), **App Check (reCAPTCHA Enterprise)**, **Remote Config**, **Firestore**, **Authentication**, **Hosting**, and a **Chrome Side Panel Extension**.
 
+![CloakVault Workbench — Local Redaction & Live Hybrid Risk Audit](docs/screenshots/workbench-audit.png)
+
 ## Why Hybrid AI Is Essential Here
 
 Freelancers, founders, patients, and teams want frontier AI audits on NDAs, SaaS vendor contracts, bank statements, and itemized medical bills—but uploading raw documents exposes sensitive PII (names, PAN/SSN, account numbers, API keys, addresses, phone numbers) to external cloud servers.
 
 **CloakVault** solves this with a 3-stage, zero-mock hybrid pipeline powered by **`firebase/ai`**:
+
+```mermaid
+flowchart LR
+    A["PDF / DOCX / TXT / Webpage"] --> B["100% Local Browser Parser + IndexedDB Vault"]
+    B --> C["Deterministic + On-Device Gemini Nano NER (ONLY_ON_DEVICE)"]
+    C --> D{"Zero-Leak Boundary (0 B Raw PII + SHA-256 Receipt)"}
+    D -->|"Air-Gap / Triage / Q&A (PREFER_ON_DEVICE)"| E["Chrome Built-in Gemini Nano (Local, $0)"]
+    D -->|"Deep Structured Audit (PREFER_IN_CLOUD)"| F["Firebase App Check (reCAPTCHA Enterprise) + Remote Config"]
+    F --> G["Firebase AI Logic — gemini-3.5-flash-lite"]
+    G --> H["Tokenized JSON Findings & Redlines"]
+    E --> I["Local Re-Hydration & X-Ray View"]
+    H --> I
+    D -->|"Tokenized Vault Only"| J["Cloud Firestore (users/{uid}/vaults) + Anonymous Auth"]
+```
+
+![Outbound Cloud Payload — Cryptographic SHA-256 Zero-Leak Wire Proof](docs/screenshots/zero-leak-wire-proof.png)
 
 1. **Stage 1 — Strictly On-Device PII Shield (`InferenceMode.ONLY_ON_DEVICE`):**
    - 100% browser-side `.pdf` (`pdfjs-dist`), `.docx` (`mammoth`), `.txt`, `.md`, and `.csv` parsing + deterministic entity scanning + mouse **Select-to-Redact** + **Chrome Built-in Gemini Nano** contextual NER.
