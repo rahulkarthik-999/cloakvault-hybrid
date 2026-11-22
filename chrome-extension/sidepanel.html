@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CloakVault Side Panel</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 14px;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #f6f5f1;
+        color: #171717;
+        font-size: 12.5px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e4e2dc;
+        margin-bottom: 12px;
+      }
+      .title {
+        font-family: Georgia, serif;
+        font-size: 17px;
+        font-weight: 700;
+        color: #171717;
+      }
+      .badge {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #f0fdfa;
+        border: 1px solid #99f6e4;
+        color: #115e59;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #e4e2dc;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(20, 20, 19, 0.04);
+      }
+      button {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      .btn-primary {
+        background: #171717;
+        color: #ffffff;
+        border: 1px solid #171717;
+      }
+      .btn-primary:hover {
+        background: #2e2e2b;
+      }
+      .btn-secondary {
+        background: #ffffff;
+        color: #171717;
+        border: 1px solid #d6d3cb;
+      }
+      .btn-secondary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        background: #faf9f6;
+        border: 1px solid #e4e2dc;
+        border-radius: 6px;
+        padding: 7px 9px;
+        color: #171717;
+        font-size: 11px;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #faf9f6;
+        border: 1px solid #eceae3;
+        border-radius: 6px;
+        padding: 10px;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 11px;
+        max-height: 240px;
+        overflow-y: auto;
+        color: #292524;
+      }
+      .status {
+        font-size: 11.5px;
+        color: #57534e;
+        margin-bottom: 8px;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <span class="title">CloakVault</span>
+      <span id="nano-badge" class="badge">Checking Nano…</span>
+    </div>
+
+    <div class="card">
+      <div class="status" id="status-text">
+        Capture text from any contract, invoice, or Terms page and redact PII locally in Chrome.
+      </div>
+      <button id="scan-btn" class="btn-primary">1. Capture &amp; Scan Active Page On-Device</button>
+      <button id="open-app-btn" class="btn-secondary" disabled>
+        2. Open in CloakVault Workbench (Hybrid Cloud Audit)
+      </button>
+      <input
+        id="app-url"
+        type="url"
+        value="https://cloakvault-hybrid.web.app"
+        placeholder="CloakVault Web App URL"
+      />
+    </div>
+
+    <div class="card">
+      <div class="status" id="pii-summary">No page scanned yet.</div>
+      <pre id="output-preview">Click "Capture &amp; Scan Active Page On-Device" to redact PII and run Chrome Gemini Nano locally.</pre>
+    </div>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

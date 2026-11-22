@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "CloakVault — Zero-Leak Hybrid AI Shield",
+  "version": "1.0.0",
+  "description": "Scan any webpage contract, invoice, or Terms of Service locally with Chrome Gemini Nano, redact PII on-device, and open in CloakVault for sanitized Firebase AI Logic auditing.",
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "action": {
+    "default_title": "Open CloakVault Side Panel"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

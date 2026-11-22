@@ -1,0 +1,686 @@
+import { useEffect, useMemo, useState } from 'react';
+import { SAMPLE_DOCUMENTS } from './data/sampleDocuments';
+import { applyRedaction, extractDeterministicPii, mergeEntities } from './lib/piiEngine';
+import { extractTextFromFile } from './lib/pdfParser';
+import {
+  deleteLocalVault,
+  loadAllLocalVaults,
+  loadLocalTelemetry,
+  saveLocalTelemetryEvent,
+  saveLocalVault,
+} from './lib/localVaultStore';
+import {
+  exportAuditMarkdown,
+  exportRedactedDocument,
+  exportZeroLeakCertificate,
+  sha256Hex,
+} from './lib/cryptoProof';
+import {
+  DEFAULT_REMOTE_POLICY,
+  getFirebaseBundle,
+  loadRemotePolicy,
+  signInGuest,
+  subscribeToAuth,
+} from './lib/firebaseClient';
+import {
+  checkChromeNanoAvailability,
+  discoverContextualPiiOnDevice,
+  downloadChromeNanoModel,
+  runHybridDeepAudit,
+  runHybridTriage,
+  streamHybridChatTurn,
+} from './lib/hybridAiService';
+import { logTelemetryToFirestore, syncSanitizedVaultToFirestore } from './lib/firestoreVault';
+import { HeaderBar } from './components/HeaderBar';
+import { VaultSidebar } from './components/VaultSidebar';
+import { DocumentPaper } from './components/DocumentPaper';
+import { InspectorPane } from './components/InspectorPane';
+import { FirebaseConfigModal } from './components/FirebaseConfigModal';
+import type {
+  ChatMessage,
+  HybridInferenceMode,
+  PiiType,
+  RemotePolicyConfig,
+  SystemCapabilities,
+  TelemetryEvent,
+  VaultDocument,
+} from './types/vault';
+
+function createVaultFromSample(sampleId: string): VaultDocument {
+  const sample = SAMPLE_DOCUMENTS.find((s) => s.id === sampleId) ?? SAMPLE_DOCUMENTS[0];
+  const now = Date.now();
+  return {
+    id: `${sample.id}-${now}`,
+    title: sample.title,
+    category: sample.category,
+    rawText: sample.rawText,
+    createdAt: now,
+    updatedAt: now,
+    entities: extractDeterministicPii(sample.rawText),
+    chatHistory: [],
+  };
+}
+
+export default function App() {
+  const [vaults, setVaults] = useState<VaultDocument[]>(() => [
+    createVaultFromSample('sample-saas-msa'),
+  ]);
+  const [activeVaultId, setActiveVaultId] = useState<string>(() => vaults[0].id);
+  const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
+  const [airGapMode, setAirGapMode] = useState(false);
+  const [busyAction, setBusyAction] = useState<'pii' | 'triage' | 'audit' | 'sync' | null>(null);
+  const [chatStreaming, setChatStreaming] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [firebaseModalOpen, setFirebaseModalOpen] = useState(false);
+  const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [telemetry, setTelemetry] = useState<TelemetryEvent[]>([]);
+  const [remotePolicy, setRemotePolicy] = useState<RemotePolicyConfig>(DEFAULT_REMOTE_POLICY);
+
+  const bundle = useMemo(() => getFirebaseBundle(), []);
+
+  const [capabilities, setCapabilities] = useState<SystemCapabilities>({
+    online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+    firebaseConfigured: bundle.configured,
+    appCheckInitialized: Boolean(bundle.appCheck),
+    remoteConfigLoaded: false,
+    firestoreConnected: Boolean(bundle.db),
+    authUserUid: null,
+    authIsAnonymous: false,
+    chromeNanoStatus: 'unsupported',
+    chromeNanoDownloadProgress: null,
+  });
+
+  const activeVault = vaults.find((v) => v.id === activeVaultId) ?? vaults[0];
+
+  // Hydrate persisted IndexedDB vaults, telemetry, and Chrome Extension clip handoff on mount
+  useEffect(() => {
+    let mounted = true;
+
+    async function hydrate() {
+      const [storedVaults, storedTelemetry] = await Promise.all([
+        loadAllLocalVaults(),
+        loadLocalTelemetry(),
+      ]);
+      if (!mounted) return;
+
+      const params = new URLSearchParams(window.location.search);
+      const clippedText = params.get('clip');
+      const clippedTitle = params.get('title') || 'Clipped Webpage Document';
+
+      let initialVaults = storedVaults.length > 0 ? storedVaults : vaults;
+
+      if (clippedText && clippedText.trim().length > 20) {
+        const now = Date.now();
+        const imported: VaultDocument = {
+          id: `clip-${now}`,
+          title: clippedTitle,
+          category: 'general',
+          rawText: clippedText,
+          createdAt: now,
+          updatedAt: now,
+          entities: extractDeterministicPii(clippedText),
+          chatHistory: [],
+        };
+        await saveLocalVault(imported);
+        initialVaults = [imported, ...initialVaults];
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (storedVaults.length === 0) {
+        await saveLocalVault(initialVaults[0]);
+      }
+
+      setVaults(initialVaults);
+      setActiveVaultId(initialVaults[0].id);
+      if (storedTelemetry.length > 0) setTelemetry(storedTelemetry);
+    }
+
+    void hydrate();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Monitor online status, Chrome Gemini Nano availability, Firebase Remote Config & Auth
+  useEffect(() => {
+    const onOnline = () => setCapabilities((c) => ({ ...c, online: true }));
+    const onOffline = () => setCapabilities((c) => ({ ...c, online: false }));
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+
+    checkChromeNanoAvailability().then((status) => {
+      setCapabilities((c) => ({ ...c, chromeNanoStatus: status }));
+    });
+
+    const nanoPoller = window.setInterval(() => {
+      checkChromeNanoAvailability().then((status) => {
+        setCapabilities((c) => {
+          if (c.chromeNanoStatus === status) return c;
+          return {
+            ...c,
+            chromeNanoStatus: status,
+            chromeNanoDownloadProgress: status === 'available' ? null : c.chromeNanoDownloadProgress,
+          };
+        });
+      });
+    }, 3000);
+
+    loadRemotePolicy().then((policy) => {
+      setRemotePolicy(policy);
+      setCapabilities((c) => ({
+        ...c,
+        remoteConfigLoaded: policy.source === 'REMOTE_CONFIG',
+      }));
+    });
+
+    const unsubAuth = subscribeToAuth((user) => {
+      setCapabilities((c) => ({
+        ...c,
+        authUserUid: user?.uid ?? null,
+        authIsAnonymous: user?.isAnonymous ?? false,
+      }));
+    });
+
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      window.clearInterval(nanoPoller);
+      unsubAuth();
+    };
+  }, []);
+
+  const updateActiveVault = (updater: (v: VaultDocument) => VaultDocument) => {
+    setVaults((prev) =>
+      prev.map((v) => {
+        if (v.id !== activeVault.id) return v;
+        const updated = { ...updater(v), updatedAt: Date.now() };
+        void saveLocalVault(updated);
+        return updated;
+      })
+    );
+  };
+
+  const recordTelemetry = async (
+    partial: Omit<TelemetryEvent, 'id' | 'timestamp' | 'redactedSha256'>,
+    redactedText: string
+  ) => {
+    const redactedSha256 = await sha256Hex(redactedText);
+    const event: TelemetryEvent = {
+      ...partial,
+      id: `tel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      redactedSha256,
+    };
+    setTelemetry((prev) => [event, ...prev].slice(0, 50));
+    void saveLocalTelemetryEvent(event);
+    if (capabilities.authUserUid) {
+      void logTelemetryToFirestore(capabilities.authUserUid, event);
+    }
+  };
+
+  const handleDownloadNano = async () => {
+    setAiError(null);
+    setCapabilities((c) => ({
+      ...c,
+      chromeNanoStatus: 'downloading',
+      chromeNanoDownloadProgress: 0,
+    }));
+    try {
+      await downloadChromeNanoModel((pct) => {
+        setCapabilities((c) => ({ ...c, chromeNanoDownloadProgress: pct }));
+      });
+      const status = await checkChromeNanoAvailability();
+      setCapabilities((c) => ({
+        ...c,
+        chromeNanoStatus: status,
+        chromeNanoDownloadProgress: null,
+      }));
+    } catch (err) {
+      setAiError(
+        `Chrome Gemini Nano download failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+      const status = await checkChromeNanoAvailability();
+      setCapabilities((c) => ({
+        ...c,
+        chromeNanoStatus: status,
+        chromeNanoDownloadProgress: null,
+      }));
+    }
+  };
+
+  const handleLoadSample = (sampleId: string) => {
+    const created = createVaultFromSample(sampleId);
+    void saveLocalVault(created);
+    setVaults((prev) => [created, ...prev]);
+    setActiveVaultId(created.id);
+    setHighlightedQuote(null);
+    setLastSyncMessage(null);
+    setAiError(null);
+  };
+
+  const handleCreateBlankVault = () => {
+    const now = Date.now();
+    const blank: VaultDocument = {
+      id: `doc-${now}`,
+      title: 'Untitled Document',
+      category: 'general',
+      rawText: '',
+      createdAt: now,
+      updatedAt: now,
+      entities: [],
+      chatHistory: [],
+    };
+    void saveLocalVault(blank);
+    setVaults((prev) => [blank, ...prev]);
+    setActiveVaultId(blank.id);
+    setHighlightedQuote(null);
+  };
+
+  const handleDeleteVault = (id: string) => {
+    void deleteLocalVault(id);
+    setVaults((prev) => {
+      const next = prev.filter((v) => v.id !== id);
+      if (id === activeVaultId && next.length > 0) {
+        setActiveVaultId(next[0].id);
+      }
+      return next;
+    });
+  };
+
+  const handleUploadFile = async (file: File) => {
+    setAiError(null);
+    setUploadingFile(true);
+    try {
+      const rawText = await extractTextFromFile(file);
+      const lower = file.name.toLowerCase();
+      const category: VaultDocument['category'] =
+        /\b(nda|msa|contract|agreement|lease|sow)\b/.test(lower)
+          ? 'legal'
+          : /\b(bank|statement|invoice|ledger|receipt|tax|payroll)\b/.test(lower)
+          ? 'financial'
+          : /\b(med|medical|hospital|eob|clinic|patient|bill)\b/.test(lower)
+          ? 'medical'
+          : 'general';
+
+      const now = Date.now();
+      const created: VaultDocument = {
+        id: `file-${now}`,
+        title: file.name.replace(/\.[^.]+$/, ''),
+        fileName: file.name,
+        category,
+        rawText,
+        createdAt: now,
+        updatedAt: now,
+        entities: extractDeterministicPii(rawText),
+        chatHistory: [],
+      };
+      await saveLocalVault(created);
+      setVaults((prev) => [created, ...prev]);
+      setActiveVaultId(created.id);
+      setHighlightedQuote(null);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to extract document locally.');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleUpdateRawText = (newText: string) => {
+    updateActiveVault((v) => ({
+      ...v,
+      rawText: newText,
+      entities: extractDeterministicPii(newText),
+    }));
+  };
+
+  const handleToggleEntity = (entityId: string) => {
+    updateActiveVault((v) => ({
+      ...v,
+      entities: v.entities.map((e) => (e.id === entityId ? { ...e, enabled: !e.enabled } : e)),
+    }));
+  };
+
+  const handleAddCustomEntity = (text: string, type: PiiType) => {
+    updateActiveVault((v) => ({
+      ...v,
+      entities: mergeEntities(v.rawText, v.entities, [{ text, type, source: 'MANUAL' }]),
+    }));
+  };
+
+  const handleRunNanoPiiScan = async () => {
+    setAiError(null);
+    setBusyAction('pii');
+    try {
+      const res = await discoverContextualPiiOnDevice(
+        activeVault.rawText,
+        remotePolicy.cloudModelName
+      );
+      const merged = mergeEntities(
+        activeVault.rawText,
+        activeVault.entities,
+        res.entities.map((e) => ({ ...e, source: 'GEMINI_NANO' as const }))
+      );
+      updateActiveVault((v) => ({ ...v, entities: merged }));
+      const redaction = applyRedaction(activeVault.rawText, merged);
+      await recordTelemetry(
+        {
+          task: 'PII_DISCOVERY',
+          requestedMode: 'only_on_device',
+          actualSource: res.source,
+          modelLabel: res.modelLabel,
+          latencyMs: res.latencyMs,
+          piiItemsShielded: redaction.activeCount,
+          piiBytesKeptLocal: redaction.shieldedBytes,
+          cloudPayloadBytes: 0,
+          offline: airGapMode || !capabilities.online,
+        },
+        redaction.redactedText
+      );
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'On-device PII discovery failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleRunTriage = async () => {
+    setAiError(null);
+    setBusyAction('triage');
+    try {
+      const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
+      const res = await runHybridTriage({
+        redactedText: redaction.redactedText,
+        category: activeVault.category,
+        cloudModelName: remotePolicy.cloudModelName,
+        forceOffline: airGapMode || !capabilities.online,
+      });
+      updateActiveVault((v) => ({
+        ...v,
+        localTriageSummary: {
+          summary: res.summary,
+          documentType: res.documentType,
+          urgency: res.urgency,
+          inferenceSource: res.source,
+          latencyMs: res.latencyMs,
+        },
+      }));
+      await recordTelemetry(
+        {
+          task: 'TRIAGE',
+          requestedMode: airGapMode ? 'only_on_device' : 'prefer_on_device',
+          actualSource: res.source,
+          modelLabel: res.modelLabel,
+          latencyMs: res.latencyMs,
+          piiItemsShielded: redaction.activeCount,
+          piiBytesKeptLocal: redaction.shieldedBytes,
+          cloudPayloadBytes:
+            res.source === 'IN_CLOUD'
+              ? new TextEncoder().encode(redaction.redactedText).length
+              : 0,
+          offline: airGapMode || !capabilities.online,
+        },
+        redaction.redactedText
+      );
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Hybrid triage failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleRunDeepAudit = async () => {
+    setAiError(null);
+    setBusyAction('audit');
+    try {
+      const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
+      if (remotePolicy.strictPiiShield && !redaction.zeroLeakVerified) {
+        setAiError(
+          'Strict PII Shield blocked cloud escalation because an active entity remained unredacted.'
+        );
+        return;
+      }
+
+      const report = await runHybridDeepAudit({
+        rawText: activeVault.rawText,
+        redactedText: redaction.redactedText,
+        category: activeVault.category,
+        mode: remotePolicy.deepAuditMode,
+        cloudModelName: remotePolicy.cloudModelName,
+        piiBytesProtected: redaction.shieldedBytes,
+        forceOffline: airGapMode || !capabilities.online,
+      });
+
+      updateActiveVault((v) => ({ ...v, auditReport: report }));
+      await recordTelemetry(
+        {
+          task: 'DEEP_AUDIT',
+          requestedMode: airGapMode ? 'only_on_device' : remotePolicy.deepAuditMode,
+          actualSource: report.inferenceSource,
+          modelLabel: report.modelLabel,
+          latencyMs: report.latencyMs,
+          piiItemsShielded: redaction.activeCount,
+          piiBytesKeptLocal: redaction.shieldedBytes,
+          cloudPayloadBytes:
+            report.inferenceSource === 'IN_CLOUD'
+              ? new TextEncoder().encode(redaction.redactedText).length
+              : 0,
+          offline: airGapMode || !capabilities.online,
+        },
+        redaction.redactedText
+      );
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Hybrid audit failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleSendChat = async (question: string, mode: HybridInferenceMode) => {
+    setAiError(null);
+    setChatStreaming(true);
+
+    const userMsg: ChatMessage = {
+      id: `msg-u-${Date.now()}`,
+      role: 'user',
+      content: question,
+      timestamp: Date.now(),
+    };
+    const streamMsgId = `msg-a-${Date.now() + 1}`;
+    const placeholderAssistant: ChatMessage = {
+      id: streamMsgId,
+      role: 'assistant',
+      content: '',
+      rawTokenizedContent: '',
+      timestamp: Date.now(),
+      streaming: true,
+    };
+
+    const priorHistory = [...activeVault.chatHistory, userMsg];
+    updateActiveVault((v) => ({
+      ...v,
+      chatHistory: [...priorHistory, placeholderAssistant],
+    }));
+
+    try {
+      const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
+      const qRedaction = applyRedaction(question, activeVault.entities);
+
+      const res = await streamHybridChatTurn({
+        redactedText: redaction.redactedText,
+        history: priorHistory,
+        question: qRedaction.redactedText,
+        mode,
+        cloudModelName: remotePolicy.cloudModelName,
+        forceOffline: airGapMode || !capabilities.online,
+        onChunk: (accumulated) => {
+          setVaults((prev) =>
+            prev.map((v) =>
+              v.id !== activeVault.id
+                ? v
+                : {
+                    ...v,
+                    chatHistory: v.chatHistory.map((m) =>
+                      m.id === streamMsgId
+                        ? { ...m, content: accumulated, rawTokenizedContent: accumulated }
+                        : m
+                    ),
+                  }
+            )
+          );
+        },
+      });
+
+      updateActiveVault((v) => ({
+        ...v,
+        chatHistory: v.chatHistory.map((m) =>
+          m.id === streamMsgId
+            ? {
+                ...m,
+                content: res.tokenizedAnswer,
+                rawTokenizedContent: res.tokenizedAnswer,
+                inferenceSource: res.source,
+                latencyMs: res.latencyMs,
+                ttftMs: res.ttftMs,
+                requestedMode: mode,
+                streaming: false,
+              }
+            : m
+        ),
+      }));
+
+      await recordTelemetry(
+        {
+          task: 'HYBRID_CHAT',
+          requestedMode: mode,
+          actualSource: res.source,
+          modelLabel: res.modelLabel,
+          latencyMs: res.latencyMs,
+          ttftMs: res.ttftMs,
+          piiItemsShielded: redaction.activeCount,
+          piiBytesKeptLocal: redaction.shieldedBytes,
+          cloudPayloadBytes:
+            res.source === 'IN_CLOUD'
+              ? new TextEncoder().encode(redaction.redactedText).length
+              : 0,
+          offline: airGapMode || !capabilities.online,
+        },
+        redaction.redactedText
+      );
+    } catch (err) {
+      // Remove empty streaming placeholder on error
+      updateActiveVault((v) => ({
+        ...v,
+        chatHistory: v.chatHistory.filter((m) => m.id !== streamMsgId),
+      }));
+      setAiError(err instanceof Error ? err.message : 'Hybrid chat request failed.');
+    } finally {
+      setChatStreaming(false);
+    }
+  };
+
+  const handleSyncFirestore = async () => {
+    setAiError(null);
+    setLastSyncMessage(null);
+    setBusyAction('sync');
+    try {
+      let uid = capabilities.authUserUid;
+      if (!uid) {
+        const user = await signInGuest();
+        uid = user?.uid ?? null;
+      }
+      if (!uid) {
+        setAiError('Sign in via "Firebase Setup" to sync redacted vaults to Cloud Firestore.');
+        return;
+      }
+      const res = await syncSanitizedVaultToFirestore(uid, activeVault);
+      if (res.synced) {
+        setLastSyncMessage(`Synced (${res.bytesProtected} B PII kept local)`);
+      } else {
+        setAiError(res.error || 'Firestore sync failed.');
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Firestore sync failed.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[#F6F5F1] text-[#171717] lg:h-screen lg:overflow-hidden">
+      <HeaderBar
+        activeVault={activeVault}
+        onUpdateTitle={(title) => updateActiveVault((v) => ({ ...v, title }))}
+        capabilities={capabilities}
+        remotePolicy={remotePolicy}
+        airGapMode={airGapMode}
+        onToggleAirGap={() => setAirGapMode((v) => !v)}
+        onDownloadNano={handleDownloadNano}
+        onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
+        onExportRedacted={() => exportRedactedDocument(activeVault)}
+        onExportAuditMd={() => exportAuditMarkdown(activeVault, true)}
+        onExportCertificate={() => void exportZeroLeakCertificate(activeVault)}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <VaultSidebar
+          vaults={vaults}
+          activeVaultId={activeVault.id}
+          onSelectVault={(id) => {
+            setActiveVaultId(id);
+            setHighlightedQuote(null);
+            setLastSyncMessage(null);
+            setAiError(null);
+          }}
+          onDeleteVault={handleDeleteVault}
+          onLoadSample={handleLoadSample}
+          onUploadFile={handleUploadFile}
+          onCreateBlankVault={handleCreateBlankVault}
+          uploadingFile={uploadingFile}
+        />
+
+        <DocumentPaper
+          vault={activeVault}
+          highlightedQuote={highlightedQuote}
+          onClearHighlight={() => setHighlightedQuote(null)}
+          onUpdateRawText={handleUpdateRawText}
+          onToggleEntity={handleToggleEntity}
+          onRedactSelection={handleAddCustomEntity}
+          onSyncFirestore={handleSyncFirestore}
+          firestoreConfigured={capabilities.firebaseConfigured}
+          syncBusy={busyAction === 'sync'}
+          lastSyncMessage={lastSyncMessage}
+        />
+
+        <InspectorPane
+          vault={activeVault}
+          capabilities={capabilities}
+          defaultQaMode={remotePolicy.defaultQaMode}
+          airGapMode={airGapMode || !capabilities.online}
+          telemetry={telemetry}
+          busyAction={busyAction}
+          chatStreaming={chatStreaming}
+          aiError={aiError}
+          onDismissError={() => setAiError(null)}
+          onRunNanoPiiScan={handleRunNanoPiiScan}
+          onRunTriage={handleRunTriage}
+          onRunDeepAudit={handleRunDeepAudit}
+          onSendChat={handleSendChat}
+          onToggleEntity={handleToggleEntity}
+          onAddCustomEntity={handleAddCustomEntity}
+          onSelectClauseQuote={(q) => setHighlightedQuote(q)}
+          onDownloadNano={handleDownloadNano}
+          onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
+          onExportCertificate={() => void exportZeroLeakCertificate(activeVault)}
+        />
+      </div>
+
+      <FirebaseConfigModal
+        open={firebaseModalOpen}
+        onClose={() => setFirebaseModalOpen(false)}
+        capabilities={capabilities}
+        remotePolicy={remotePolicy}
+        projectId={bundle.projectId}
+      />
+    </div>
+  );
+}
