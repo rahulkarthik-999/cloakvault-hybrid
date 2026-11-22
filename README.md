@@ -1,79 +1,167 @@
-# CloakVault — Zero-Leak Hybrid AI Document Intelligence
+<div align="center">
 
-> **Built for `#BuildHybridAI 2026`** · Live Demo: **https://cloakvault-hybrid.web.app** · Powered by **Firebase AI Logic** (On-Device Gemini Nano + Cloud `gemini-3.5-flash-lite` Fallback), **App Check (reCAPTCHA Enterprise)**, **Remote Config**, **Firestore**, **Authentication**, **Hosting**, and a **Chrome Side Panel Extension**.
+<img src="public/favicon.svg" width="72" alt="CloakVault logo" />
 
-![CloakVault Workbench — Local Redaction & Live Hybrid Risk Audit](docs/screenshots/workbench-audit.png)
+# CloakVault
 
-## Why Hybrid AI Is Essential Here
+### Frontier AI for your contracts. Zero secrets in the cloud.
 
-Freelancers, founders, patients, and teams want frontier AI audits on NDAs, SaaS vendor contracts, bank statements, and itemized medical bills—but uploading raw documents exposes sensitive PII (names, PAN/SSN, account numbers, API keys, addresses, phone numbers) to external cloud servers.
+**Zero-leak hybrid AI document intelligence — built on Firebase AI Logic hybrid inference.**
 
-**CloakVault** solves this with a 3-stage, zero-mock hybrid pipeline powered by **`firebase/ai`**:
+[**▶ Try it live**](https://cloakvault-hybrid.web.app) · [**Open the workbench**](https://cloakvault-hybrid.web.app/app) · [Demo video](#demo-video) · [How it works](#how-it-works) · [Firebase usage](#how-cloakvault-uses-firebase-ai-logic)
+
+`#BuildHybridAI 2026` · Platform: **Web (Chrome)** · License: **Apache-2.0**
+
+</div>
+
+![CloakVault — on-device redaction + hybrid Gemini audit](docs/media/01-hero.jpg)
+
+## The problem
+
+The documents that most need a second opinion — an NDA, a bank statement, an itemized hospital bill — are exactly the ones you shouldn't paste into a chatbot. They're full of names, government IDs, account numbers and addresses. So freelancers sign the uncapped-indemnity clause, patients pay the duplicate lab charge, and small finance teams miss the double SaaS bill.
+
+## The solution
+
+**CloakVault** is a document workbench that gives you a frontier-model risk audit **without ever sending raw personal data to the cloud**:
+
+1. **Shield on-device** — files are parsed in the browser; deterministic detectors plus **Gemini Nano** swap every name, ID, account and address for a reversible local token (`[PERSON_1]`, `[ACCOUNT_1]`…).
+2. **Triage & chat locally** — summaries and streaming Q&A **prefer on-device Gemini Nano** (free, private, offline-capable) and fall back to cloud Gemini automatically when Nano isn't available.
+3. **Escalate only tokens** — the deep clause-by-clause audit **prefers the cloud**, but only the verified, tokenized payload is sent. Findings come back with exact clause quotes and ready-to-send redlines, and are **re-hydrated locally**.
+4. **Prove it** — the *Outbound Cloud Payload* view shows the exact bytes sent plus Web Crypto **SHA-256** hashes; export a JSON zero-leak certificate.
+
+![Redaction before any AI call](docs/media/02-redaction.jpg)
+
+## Judges: 60-second test
+
+1. Open **https://cloakvault-hybrid.web.app** → **Open the workbench** (no sign-up; a sample contract is preloaded).
+2. Toggle **Original (Local)** ⇄ **Redacted View** — 15 entities are tokenized on-device. Highlight any text to redact more.
+3. Click **Run Hybrid Audit** → a risk score, clause findings and redlines in ~5–10 s (`IN_CLOUD`, via Firebase AI Logic + App Check).
+4. Click **Locate ↗** on a finding, then flip **Re-Hydrated ⇄ Cloud Tokens** to see what the cloud actually saw.
+5. Open **Outbound Cloud Payload** to verify zero raw PII and the SHA-256 receipt; check **Telemetry** for real `inferenceSource`, latency and TTFT.
+6. Toggle **Hybrid routing → Air-gap** to lock every task to on-device. In Chrome with built-in AI, click **Download Gemini Nano** and everything keeps working offline.
+
+> On a browser without Gemini Nano, the header shows *“Nano unavailable · cloud fallback”* — that's the hybrid SDK doing its job. Redaction is always 100% local.
+
+## How it works
 
 ```mermaid
 flowchart LR
-    A["PDF / DOCX / TXT / Webpage"] --> B["100% Local Browser Parser + IndexedDB Vault"]
-    B --> C["Deterministic + On-Device Gemini Nano NER (ONLY_ON_DEVICE)"]
-    C --> D{"Zero-Leak Boundary (0 B Raw PII + SHA-256 Receipt)"}
-    D -->|"Air-Gap / Triage / Q&A (PREFER_ON_DEVICE)"| E["Chrome Built-in Gemini Nano (Local, $0)"]
-    D -->|"Deep Structured Audit (PREFER_IN_CLOUD)"| F["Firebase App Check (reCAPTCHA Enterprise) + Remote Config"]
-    F --> G["Firebase AI Logic — gemini-3.5-flash-lite"]
-    G --> H["Tokenized JSON Findings & Redlines"]
-    E --> I["Local Re-Hydration & X-Ray View"]
+    A["PDF / DOCX / TXT / web page"] --> B["In-browser parser + IndexedDB vault"]
+    B --> C["Deterministic detectors + Gemini Nano NER<br/>(ONLY_ON_DEVICE)"]
+    C --> D{"Zero-leak boundary<br/>0 B raw PII + SHA-256 receipt"}
+    D -->|"Triage / Q&A (PREFER_ON_DEVICE)"| E["Gemini Nano in Chrome"]
+    D -->|"Deep audit (PREFER_IN_CLOUD)"| F["App Check (reCAPTCHA Enterprise)"]
+    F --> G["Firebase AI Logic → Gemini (cloud)"]
+    G --> H["Tokenized JSON findings + redlines"]
+    E --> I["Local re-hydration"]
     H --> I
-    D -->|"Tokenized Vault Only"| J["Cloud Firestore (users/{uid}/vaults) + Anonymous Auth"]
+    D -->|"Redacted vault only"| J["Firestore (rules enforce zeroLeakVerified)"]
+    R["Remote Config"] -.->|"per-task modes, model, strict shield"| D
 ```
 
-![Outbound Cloud Payload — Cryptographic SHA-256 Zero-Leak Wire Proof](docs/screenshots/zero-leak-wire-proof.png)
+### How CloakVault uses Firebase AI Logic
 
-1. **Stage 1 — Strictly On-Device PII Shield (`InferenceMode.ONLY_ON_DEVICE`):**
-   - 100% browser-side `.pdf` (`pdfjs-dist`), `.docx` (`mammoth`), `.txt`, `.md`, and `.csv` parsing + deterministic entity scanning + mouse **Select-to-Redact** + **Chrome Built-in Gemini Nano** contextual NER.
-   - Replaces every sensitive entity with reversible local tokens (`[PERSON_1]`, `[ORG_1]`, `[ACCOUNT_1]`, `[GOV_ID_1]`).
-   - Raw documents and the local keymap stay exclusively in browser IndexedDB/memory—**0 bytes of raw PII ever leave the device**.
-2. **Stage 2 — Instant On-Device Triage & Streaming Chat (`InferenceMode.PREFER_ON_DEVICE`):**
-   - Quick triage summaries and interactive token-by-token streaming Q&A run locally at zero cloud cost and keep working even in **Air-Gap / Offline Mode**, falling back automatically to Cloud Gemini (`gemini-3.5-flash-lite`, remotely switchable via Firebase Remote Config) only when Nano is unavailable.
-3. **Stage 3 — Sanitized Cloud Escalation & Local Re-Hydration (`InferenceMode.PREFER_IN_CLOUD`):**
-   - Deep adversarial risk audits (0–100 risk score, predatory clause detection, clickable **Locate ↗** clause jump, strikethrough/proposed inline redlines, duplicate billing analysis) send **only the verified zero-PII tokenized payload** to Gemini Cloud via Firebase AI Logic (falling back to On-Device Gemini Nano automatically if offline).
-   - Responses are **re-hydrated locally** in the browser, with a live **X-Ray Toggle** (*Re-Hydrated* vs. *Cloud Tokens*), an **Outbound Cloud Payload** inspector with live Web Crypto **`SHA-256`** hashes, and exportable Redacted `.txt`, Redlined Audit `.md`, and JSON Zero-Leak Compliance Certificates.
+Every AI task gets its own `getGenerativeModel()` with a deliberately chosen `InferenceMode`, and the app records the real `response.inferenceSource` for each call:
 
-## Firebase Products Used
+| Task | `InferenceMode` | Why | Code |
+|---|---|---|---|
+| Contextual PII discovery | `ONLY_ON_DEVICE` | Raw text must never leave the device — no cloud fallback by design | [`discoverContextualPiiOnDevice`](src/lib/hybridAiService.ts) |
+| Triage summary | `PREFER_ON_DEVICE` | Fast, free, private; cloud only if Nano is missing | [`runHybridTriage`](src/lib/hybridAiService.ts) |
+| Streaming document Q&A | `PREFER_ON_DEVICE` (user-switchable) | `generateContentStream` with real TTFT telemetry | [`streamHybridChatTurn`](src/lib/hybridAiService.ts) |
+| Deep risk audit + redlines | `PREFER_IN_CLOUD` | Needs frontier reasoning over ~12k chars; falls back to Nano offline | [`runHybridDeepAudit`](src/lib/hybridAiService.ts) |
+| Air-gap mode | forces `ONLY_ON_DEVICE` | Offline-first; refuses rather than leaks | [`executeHybridInference`](src/lib/hybridAiService.ts) |
 
-| Firebase Product | Runtime Role in CloakVault | Code Location |
+```ts
+// src/lib/firebaseClient.ts
+const ai = getAI(app, { backend: new GoogleAIBackend() });
+
+// src/lib/hybridAiService.ts
+const model = getGenerativeModel(ai, {
+  mode: InferenceMode.PREFER_IN_CLOUD,           // per task, overridable via Remote Config
+  inCloudParams: { model: 'gemini-3.5-flash-lite', systemInstruction, generationConfig },
+  onDeviceParams: { createOptions: { expectedOutputs: [{ type: 'text', languages: ['en'] }] } },
+});
+const result = await model.generateContent(tokenizedPrompt);
+result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + telemetry
+```
+
+![Per-task hybrid routing with real telemetry](docs/media/05-hybrid-routing.jpg)
+
+### Firebase products used
+
+| Product | Role | Code |
 |---|---|---|
-| **Firebase AI Logic (`firebase/ai`)** | `getAI(..., { backend: new GoogleAIBackend() })`, `getGenerativeModel(..., { mode: InferenceMode.* })`, streaming `generateContentStream`, real `response.inferenceSource` telemetry | `src/lib/firebaseClient.ts`, `src/lib/hybridAiService.ts` |
-| **Firebase App Check** | `initializeAppCheck` with `ReCaptchaEnterpriseProvider` (Google Cloud Fraud Defense) + local-dev-only debug token mode | `src/lib/firebaseClient.ts` |
-| **Firebase Remote Config** | Live policy control (`default_qa_inference_mode`, `deep_audit_inference_mode`, `cloud_model_name`, `strict_pii_shield`, `max_local_context_chars`) | `src/lib/firebaseClient.ts` |
-| **Cloud Firestore** | Persists **only** zero-PII redacted vaults & aggregate telemetry under `users/{uid}/vaults` (verified by `zeroLeakVerified` guard + `firestore.rules`) | `src/lib/firestoreVault.ts`, `firestore.rules` |
-| **Firebase Authentication** | 1-click Anonymous Guest Mode + Google Sign-In | `src/lib/firebaseClient.ts`, `src/components/FirebaseConfigModal.tsx` |
-| **Firebase Hosting** | Static production hosting at `https://cloakvault-hybrid.web.app` | `firebase.json` |
+| **Firebase AI Logic** (`firebase/ai`) | Hybrid on-device/cloud inference, streaming, `inferenceSource` telemetry | `src/lib/hybridAiService.ts`, `src/lib/firebaseClient.ts` |
+| **App Check** | `ReCaptchaEnterpriseProvider` on every AI request (debug token in local dev only) | `src/lib/firebaseClient.ts` |
+| **Remote Config** | Live policy: `default_qa_inference_mode`, `deep_audit_inference_mode`, `cloud_model_name`, `strict_pii_shield`, `max_local_context_chars` | `src/lib/firebaseClient.ts` |
+| **Cloud Firestore** | Redacted vaults + telemetry only; [rules](firestore.rules) require `zeroLeakVerified == true` and an allowlisted field set | `src/lib/firestoreVault.ts` |
+| **Authentication** | Invisible anonymous guest for sync, optional Google sign-in — no sign-up wall | `src/lib/firebaseClient.ts` |
+| **Hosting** | https://cloakvault-hybrid.web.app | `firebase.json` |
 
-## Quick Start
+![Zero-leak proof](docs/media/04-zero-leak-proof.jpg)
+
+## Features
+
+- **Local parsing** of PDF (`pdfjs-dist`), DOCX (`mammoth`), TXT, MD and CSV — nothing uploaded
+- **Hybrid PII shield**: deterministic detectors + Gemini Nano NER + **select-to-redact**
+- **Risk audit**: 0–100 score, severity-ranked findings, exact clause quotes with **Locate ↗**, strikethrough + proposed redlines, missing-protection checklist
+- **X-ray toggle**: re-hydrated view ⇄ the tokens the cloud actually saw
+- **Streaming Q&A** with on-device / cloud selector, TTFT and latency per answer
+- **Outbound payload inspector** + SHA-256 receipts; **Strict PII Shield** blocks escalation if anything is exposed
+- **Air-gap mode** for fully on-device operation
+- **Exports**: redacted `.txt`, redlined audit `.md`, JSON zero-leak certificate
+- **Chrome side-panel extension** (`chrome-extension/`) — scan any web page's terms locally, hand off to the workbench
+- Three realistic sample case files: freelance MSA/NDA, SaaS ledger, itemized hospital bill + EOB
+
+![Use cases](docs/media/07-use-cases.jpg)
+
+## Demo video
+
+📺 **YouTube:** _link added on submission_ — 2:56, English narration + English subtitles.
+
+The video is generated reproducibly from the real app (live Firebase AI Logic calls) — see [`marketing/`](marketing/README.md).
+
+## Run it locally
 
 ```bash
 npm install
-cp .env.example .env.local
-# Add your Firebase Web App credentials to .env.local (or paste them in the app's "Connect Firebase" modal)
-npm run dev
+cp .env.example .env.local     # add your Firebase web config (or paste it in the in-app “Firebase” panel)
+npm run dev                     # http://localhost:5173  (landing)  ·  /app (workbench)
 ```
 
-### Enabling Chrome Built-in Gemini Nano (On-Device)
-1. Open CloakVault in Chrome desktop (Chrome 138+ with Prompt API support).
-2. Click **"Enable Gemini Nano"** in the top telemetry bar to download the local model directly in Chrome.
-3. Toggle **"Air-Gap Mode ON"** (or turn off Wi-Fi) to test 100% offline local inference and automatic hybrid fallback.
+Firebase console setup: enable **Firebase AI Logic** (Gemini Developer API), **App Check** with reCAPTCHA Enterprise (register a debug token for localhost), **Remote Config**, **Firestore** (`firebase deploy --only firestore:rules`), and **Anonymous** + **Google** sign-in.
 
-### Loading the Companion Chrome Extension (`chrome-extension/`)
-1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
-2. Click **Load unpacked** and select the `chrome-extension/` folder.
-3. Open any contract, invoice, or Terms of Service webpage, click the **CloakVault** extension icon to open the Side Panel, scan & redact locally with Gemini Nano, and click **"Send to CloakVault Web App"** for a full Hybrid Cloud Deep Audit.
+### Enable Gemini Nano (on-device) in Chrome
+1. Use Chrome desktop with the built-in Prompt API (see [Chrome built-in AI](https://developer.chrome.com/docs/ai/built-in)).
+2. In the workbench header click **Download Gemini Nano**; the pill turns green: *Gemini Nano · on-device*.
+3. Toggle **Air-gap** (or go offline) to watch every task run locally.
 
-## Testing & Production Build
+### Chrome side-panel extension
+`chrome://extensions` → Developer mode → **Load unpacked** → select `chrome-extension/`. Open any Terms of Service page, scan & redact locally, then **Send to CloakVault Web App**.
+
+### Tests & build
 
 ```bash
-npm test          # Vitest unit tests (zero-leak PII redaction & re-hydration verification)
-npm run typecheck # Strict TypeScript verification
-npm run build     # Production Vite bundle
+npm test          # Vitest — zero-leak redaction & re-hydration
+npm run typecheck
+npm run build
+```
+
+## Project structure
+
+```
+src/
+  components/Landing.tsx        landing page (/)
+  App.tsx                       workbench (/app)
+  lib/hybridAiService.ts        Firebase AI Logic hybrid inference (all AI calls)
+  lib/firebaseClient.ts         App, AI Logic, App Check, Remote Config, Auth, Firestore init
+  lib/piiEngine.ts              deterministic detectors, tokenization, re-hydration
+  lib/cryptoProof.ts            SHA-256 receipts + exports
+chrome-extension/               side-panel extension
+marketing/                      reproducible demo video + gallery pipeline
+firestore.rules                 zero-leak enforced rules
 ```
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See `LICENSE` for details.
+[Apache-2.0](LICENSE)

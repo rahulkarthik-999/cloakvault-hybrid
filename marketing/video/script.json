@@ -1,0 +1,66 @@
+{
+  "voice": "en-US-AndrewMultilingualNeural",
+  "rate": "+6%",
+  "scenes": [
+    {
+      "id": "s01_hook",
+      "vo": "Would you paste your NDA, your bank statement, or your hospital bill into a chatbot? Those documents are full of names, account numbers and government IDs. So most people skip the review, and sign the bad clause anyway."
+    },
+    {
+      "id": "s02_landing",
+      "vo": "CloakVault fixes that. It's a privacy-first document workbench built on Firebase AI Logic hybrid inference. Personal data is redacted on your device, and only safe tokens ever reach the cloud."
+    },
+    {
+      "id": "s03_open",
+      "vo": "There's no sign-up. Open the workbench, and a sample freelance contract is already loaded."
+    },
+    {
+      "id": "s04_redact",
+      "vo": "Here's the original, parsed entirely in the browser. And here's what the AI will see: every name, address, email, tax ID and bank account, swapped for a reversible local token."
+    },
+    {
+      "id": "s05_select",
+      "vo": "Spot something else that's sensitive? Highlight it, and it's redacted instantly."
+    },
+    {
+      "id": "s06_routing",
+      "vo": "Every AI task has its own Firebase AI Logic inference mode. Contextual P-I-I discovery runs only on device. Triage and chat prefer Gemini Nano on device. Deep audits prefer the cloud. This browser has no Nano, so the SDK falls back to cloud Gemini automatically, and Remote Config can retune every mode live."
+    },
+    {
+      "id": "s07_audit",
+      "vo": "Let's run a hybrid audit. Only the tokenized text goes to Gemini, protected by App Check. Seconds later, the verdict: critical risk, with clause-level findings."
+    },
+    {
+      "id": "s08_findings",
+      "vo": "Each finding quotes the exact clause. Click Locate to jump straight to it, and copy a ready-to-send redline. The cloud only ever saw tokens, but the real names are re-hydrated right here, in the browser."
+    },
+    {
+      "id": "s09_proof",
+      "vo": "Don't trust us. Verify the wire. This view shows the exact bytes that were sent, with zero raw P-I-I, and SHA-256 hashes of the original and redacted text, computed with Web Crypto."
+    },
+    {
+      "id": "s10_ask",
+      "vo": "Ask a follow-up, and the answer streams token by token, labelled with where it actually ran, and its time to first token."
+    },
+    {
+      "id": "s11_telemetry",
+      "vo": "Telemetry records the real inference source, latency, and bytes kept local, for every single call."
+    },
+    {
+      "id": "s12_airgap",
+      "vo": "Switch on air-gap mode, and every task is locked to the device. With Gemini Nano installed, triage, chat and audits keep working fully offline. Without it, CloakVault refuses, and nothing leaves the machine."
+    },
+    {
+      "id": "s13_samples",
+      "vo": "The same pipeline handles itemized medical bills and bank statements, and a Chrome side panel extension brings it to the terms of service on any web page."
+    },
+    {
+      "id": "s14_stack",
+      "vo": "Under the hood: Firebase AI Logic hybrid inference, App Check with reCAPTCHA Enterprise, Remote Config, Firestore with zero-leak security rules, Authentication, and Hosting."
+    },
+    {
+      "id": "s15_outro",
+      "vo": "CloakVault. Get the second opinion. Keep the secrets. Try it free at cloakvault-hybrid dot web dot app."
+    }
+  ]
+}

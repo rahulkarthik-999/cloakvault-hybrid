@@ -310,7 +310,7 @@ async function executeHybridInference(params: {
   // No silent fake fallback: tell the user/judge exactly which real runtime needs activation
   if (!params.allowCloud) {
     throw new AIUnavailableError(
-      'On-Device PII Discovery strictly forbids cloud transmission. Click "Download Gemini Nano" in the top bar to enable local Chrome AI.',
+      'This task is locked to on-device inference (air-gap or PII discovery), but Gemini Nano is not available in this browser yet — so nothing was sent anywhere. Use Chrome with built-in AI and click "Download Gemini Nano" to run it fully offline.',
       'NANO_REQUIRED'
     );
   }
