@@ -101,7 +101,7 @@ scanBtn.addEventListener('click', async () => {
 
 openAppBtn.addEventListener('click', () => {
   if (!lastCapturedText) return;
-  const base = (appUrlInput.value || 'https://cloakvault-hybrid.web.app').replace(/\/$/, '');
+  const base = (appUrlInput.value || 'https://cloakvault.buzz').replace(/\/$/, '');
   const url = `${base}/app?title=${encodeURIComponent(lastCapturedTitle)}&clip=${encodeURIComponent(
     lastCapturedText.slice(0, 6000)
   )}`;

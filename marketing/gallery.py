@@ -72,7 +72,7 @@ def brand(dark=False, pos="left:70px;bottom:52px"):
     return f'<div class="brand" style="{pos}">{MARK.format(s=38)}<img src="{word}" style="height:24px"></div>'
 
 
-def browser(img, url="cloakvault-hybrid.web.app/app", style=""):
+def browser(img, url="cloakvault.buzz/app", style=""):
     return f'<div class="frame" style="{style}"><div class="bar"><i></i><i></i><i></i><span>{url}</span></div><img src="{img}" style="width:100%"></div>'
 
 
@@ -155,7 +155,7 @@ def cards():
             ("Remote Config", "Live policy: per-task modes, cloud model name, strict PII shield, context size.", "#F59E0B"),
             ("Cloud Firestore", "Redacted vaults + telemetry only. Rules require zeroLeakVerified and an allowlisted schema.", "#10B981"),
             ("Authentication", "Invisible anonymous guest for sync; optional Google sign-in. No sign-up wall.", "#6366F1"),
-            ("Hosting + Chrome", "cloakvault-hybrid.web.app and a Chrome side-panel extension for any web page.", "#F59E0B"),
+            ("Hosting + Chrome", "cloakvault.buzz and a Chrome side-panel extension for any web page.", "#F59E0B"),
         ]
     )
     out["06-firebase-stack"] = page_html("dark", f"""

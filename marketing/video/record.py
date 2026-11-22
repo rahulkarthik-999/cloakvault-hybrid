@@ -80,7 +80,7 @@ CARD_STACK = f"""<div style="{DARK}"></div>
     {tile('Remote Config','Live policy: inference modes, cloud model, strict PII shield','#F59E0B')}
     {tile('Cloud Firestore','Redacted vaults only — rules require zeroLeakVerified','#10B981')}
     {tile('Authentication','Invisible anonymous guest, optional Google sign-in','#6366F1')}
-    {tile('Hosting','cloakvault-hybrid.web.app + Chrome side panel extension','#F59E0B')}
+    {tile('Hosting','cloakvault.buzz + Chrome side panel extension','#F59E0B')}
   </div>
 </div>"""
 
@@ -89,7 +89,7 @@ CARD_OUTRO = f"""<div style="{DARK}"></div>
   <div style="display:flex;justify-content:center">{MARK_SVG.format(s=120)}</div>
   <div style="{SERIF};font-size:120px;line-height:1;margin-top:28px">CloakVault</div>
   <div style="{SANS};font-size:34px;color:rgba(255,255,255,.75);margin-top:18px">Get the second opinion. Keep the secrets.</div>
-  <div style="{MONO};font-size:26px;color:#34D399;margin-top:46px">cloakvault-hybrid.web.app</div>
+  <div style="{MONO};font-size:26px;color:#34D399;margin-top:46px">cloakvault.buzz</div>
   <div style="{SANS};font-size:19px;color:rgba(255,255,255,.45);margin-top:16px">#BuildHybridAI 2026 · Firebase AI Logic · Open source (Apache-2.0)</div>
 </div>"""
 

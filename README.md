@@ -6,7 +6,7 @@
 
 **Zero-leak hybrid AI document intelligence — built on Firebase AI Logic hybrid inference.**
 
-[**▶ Try it live**](https://cloakvault-hybrid.web.app) · [**Open the workbench**](https://cloakvault-hybrid.web.app/app) · [Demo video](#demo-video) · [How it works](#how-it-works) · [Firebase usage](#how-cloakvault-uses-firebase-ai-logic)
+[**▶ Try it live**](https://cloakvault.buzz) · [**Open the workbench**](https://cloakvault.buzz/app) · [Demo video](#demo-video) · [How it works](#how-it-works) · [Firebase usage](#how-cloakvault-uses-firebase-ai-logic)
 
 `#BuildHybridAI 2026` · Platform: **Web (Chrome)** · License: **Apache-2.0**
 
@@ -31,7 +31,7 @@ The documents that most need a second opinion — an NDA, a bank statement, an i
 
 ## Judges: 60-second test
 
-1. Open **https://cloakvault-hybrid.web.app** → **Open the workbench** (no sign-up; a sample contract is preloaded).
+1. Open **https://cloakvault.buzz** → **Open the workbench** (no sign-up; a sample contract is preloaded).
 2. Toggle **Original (Local)** ⇄ **Redacted View** — 15 entities are tokenized on-device. Highlight any text to redact more.
 3. Click **Run Hybrid Audit** → a risk score, clause findings and redlines in ~5–10 s (`IN_CLOUD`, via Firebase AI Logic + App Check).
 4. Click **Locate ↗** on a finding, then flip **Re-Hydrated ⇄ Cloud Tokens** to see what the cloud actually saw.
@@ -94,7 +94,7 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 | **Remote Config** | Live policy: `default_qa_inference_mode`, `deep_audit_inference_mode`, `cloud_model_name`, `strict_pii_shield`, `max_local_context_chars` | `src/lib/firebaseClient.ts` |
 | **Cloud Firestore** | Redacted vaults + telemetry only; [rules](firestore.rules) require `zeroLeakVerified == true` and an allowlisted field set | `src/lib/firestoreVault.ts` |
 | **Authentication** | Invisible anonymous guest for sync, optional Google sign-in — no sign-up wall | `src/lib/firebaseClient.ts` |
-| **Hosting** | https://cloakvault-hybrid.web.app | `firebase.json` |
+| **Hosting** | https://cloakvault.buzz | `firebase.json` |
 
 ![Zero-leak proof](docs/media/04-zero-leak-proof.jpg)
 

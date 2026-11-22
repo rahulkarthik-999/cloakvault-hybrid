@@ -7,7 +7,7 @@
 | Project name | CloakVault — Zero-Leak Hybrid AI Document Workbench |
 | Elevator pitch (≤200 chars) | Ask frontier AI about your contracts, bank statements and hospital bills — PII is redacted on-device, Gemini Nano and cloud Gemini are routed by Firebase AI Logic, and zero raw PII leaves the browser. |
 | Platform | Web (Chrome) |
-| Try it out | https://cloakvault-hybrid.web.app/ · https://github.com/rahulkarthik-999/cloakvault-hybrid |
+| Try it out | https://cloakvault.buzz/ · https://github.com/rahulkarthik-999/cloakvault-hybrid |
 | Demo video | _YouTube URL of `marketing/out/cloakvault_demo.mp4`_ |
 | Image gallery (in order) | `docs/media/01-hero.jpg` … `07-use-cases.jpg` |
 
@@ -72,7 +72,7 @@ Hybrid inference is a privacy architecture, not just a cost optimization. Choosi
 - [x] Uses Firebase AI Logic hybrid inference at runtime (`src/lib/hybridAiService.ts`)
 - [x] App Check enabled (reCAPTCHA Enterprise)
 - [x] Public GitHub repo with an Apache-2.0 license, detected in the repo's About section
-- [x] Hosted app: https://cloakvault-hybrid.web.app
+- [x] Hosted app: https://cloakvault.buzz
 - [x] Demo video ≤ 3:00 in English with English subtitles (`marketing/out/`)
 - [ ] Upload the video to YouTube (public or unlisted), add `cloakvault_demo.en.srt` as English subtitles, and set `youtube_thumbnail.jpg` as the thumbnail
 - [ ] Paste the YouTube link into Devpost and set `VITE_DEMO_VIDEO_URL` in `.env.local`, then redeploy (this adds a "Watch the demo" button to the landing page)

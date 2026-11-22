@@ -145,6 +145,6 @@ CARD_OUTRO = f"""{KEYFRAMES}<div style="{BG}"></div><div style="{GRID}"></div>
   <div class="cv-in" style="display:flex;justify-content:center;align-items:center;gap:26px">
     <img src="{MARK}" style="height:150px"/><img src="{WORDMARK_DARK}" style="height:92px"/></div>
   <div class="cv-up" style="{SANS};font-size:38px;color:rgba(255,255,255,.8);margin-top:40px;animation-delay:.2s">Get the second opinion. Keep the secrets.</div>
-  <div class="cv-up" style="{MONO};font-size:28px;color:#67E8F9;margin-top:44px;animation-delay:.4s">cloakvault-hybrid.web.app</div>
+  <div class="cv-up" style="{MONO};font-size:28px;color:#67E8F9;margin-top:44px;animation-delay:.4s">cloakvault.buzz</div>
   <div class="cv-up" style="{SANS};font-size:20px;color:rgba(255,255,255,.45);margin-top:16px;animation-delay:.55s">#BuildHybridAI 2026 · Firebase AI Logic · Open source (Apache-2.0)</div>
 </div>"""
