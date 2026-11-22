@@ -141,6 +141,16 @@ function extractJsonBlock<T>(raw: string): T | null {
   }
 }
 
+const RETRY_DELAYS_MS = [1200, 2500, 5000];
+
+/** Temporary capacity / rate-limit failures from the Gemini API that are worth retrying. */
+export function isTransientProviderError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /\[(429|500|502|503|504)\b|high demand|overloaded|resource.?exhausted|try again later/i.test(
+    msg
+  );
+}
+
 interface HybridGenerationOutput {
   text: string;
   source: ActualInferenceSource;
@@ -164,6 +174,7 @@ async function executeHybridInference(params: {
   thinkingLevel?: 'MINIMAL' | 'LOW';
   responseMimeType?: 'application/json' | 'text/plain';
   onTokenChunk?: (accumulatedText: string) => void;
+  onRetry?: (attempt: number, maxAttempts: number) => void;
 }): Promise<HybridGenerationOutput> {
   const started = performance.now();
   const bundle = getFirebaseBundle();
@@ -176,7 +187,10 @@ async function executeHybridInference(params: {
   let lastError: unknown = null;
 
   // 1. Primary path: Firebase AI Logic SDK (Hybrid Inference)
-  if (bundle.ai) {
+  // Gemini occasionally answers 429/500/503 ("high demand") for a few seconds; retry those with
+  // backoff before surfacing an error. Streams are only retried if no tokens were shown yet.
+  for (let attempt = 0; bundle.ai && attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    let streamedAnyToken = false;
     try {
       const supportsThinkingLevel = params.cloudModelName.startsWith('gemini-3');
       const generationConfig: Record<string, unknown> = {};
@@ -220,6 +234,7 @@ async function executeHybridInference(params: {
         for await (const chunk of streamRes.stream) {
           const piece = chunk.text();
           if (piece) {
+            streamedAnyToken = true;
             if (!ttftMs) ttftMs = Math.round(performance.now() - started);
             accumulated += piece;
             params.onTokenChunk(accumulated);
@@ -258,6 +273,11 @@ async function executeHybridInference(params: {
       };
     } catch (err) {
       lastError = err;
+      if (streamedAnyToken || effectiveMode === 'only_on_device' || !isTransientProviderError(err) || attempt === RETRY_DELAYS_MS.length) {
+        break;
+      }
+      params.onRetry?.(attempt + 1, RETRY_DELAYS_MS.length);
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
     }
   }
 
