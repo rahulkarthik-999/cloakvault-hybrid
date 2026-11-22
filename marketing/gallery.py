@@ -21,12 +21,13 @@ FONTS = (
     '<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600'
     '&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">'
 )
-MARK = (
-    '<svg width="{s}" height="{s}" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#0E1015"/>'
-    '<path d="M32 11 L14 18.5 V31 C14 42.6 21.6 51.6 32 55 Z" fill="#10B981"/>'
-    '<path d="M32 11 L50 18.5 V31 C50 42.6 42.4 51.6 32 55 Z" fill="#6366F1"/>'
-    '<circle cx="32" cy="29" r="5.2" fill="#0E1015"/><path d="M29.4 31.5 h5.2 l1.6 10.5 h-8.4 z" fill="#0E1015"/></svg>'
-)
+def _png(path):
+    return "data:image/png;base64," + base64.b64encode(open(os.path.join(ROOT, path), "rb").read()).decode()
+
+
+MARK = '<img src="' + _png("public/brand/mark.png") + '" style="height:{s}px;width:auto;display:block">'
+WORD = _png("public/brand/wordmark.png")
+WORD_DARK = _png("public/brand/wordmark-dark.png")
 
 CSS = """
 *{box-sizing:border-box;margin:0}
@@ -67,7 +68,8 @@ def page_html(body_class, inner):
 
 def brand(dark=False, pos="left:70px;bottom:52px"):
     color = "#fff" if dark else "#0E1015"
-    return f'<div class="brand" style="{pos};color:{color}">{MARK.format(s=34)}CloakVault</div>'
+    word = WORD_DARK if dark else WORD
+    return f'<div class="brand" style="{pos}">{MARK.format(s=38)}<img src="{word}" style="height:24px"></div>'
 
 
 def browser(img, url="cloakvault-hybrid.web.app/app", style=""):
@@ -79,7 +81,7 @@ def cards():
     # 01 — hero
     out["01-hero"] = page_html("dark", f"""
       <div style="position:absolute;left:70px;right:70px;top:56px;text-align:center">
-        <div style="display:flex;justify-content:center;align-items:center;gap:12px" class="serif">{MARK.format(s=40)}<span style="font-size:32px">CloakVault</span></div>
+        <div style="display:flex;justify-content:center;align-items:center;gap:14px">{MARK.format(s=48)}<img src="{WORD_DARK}" style="height:30px"></div>
         <div class="serif" style="font-size:70px;line-height:1.0;margin-top:22px">Frontier AI for your contracts. <em style="color:#A5B4FC">Zero</em> secrets in the cloud.</div>
         <div style="display:flex;gap:10px;margin-top:22px;justify-content:center">
           <span class="pill dev">ON-DEVICE · Gemini Nano</span><span class="pill cld">CLOUD · Gemini via Firebase AI Logic</span></div>
@@ -180,7 +182,7 @@ def cards():
 
 OG = page_html("dark", f"""
   <div style="position:absolute;left:80px;top:90px;width:1000px">
-    <div style="display:flex;align-items:center;gap:16px" class="serif">{MARK.format(s=64)}<span style="font-size:52px">CloakVault</span></div>
+    <div style="display:flex;align-items:center;gap:18px">{MARK.format(s=72)}<img src="{WORD_DARK}" style="height:44px"></div>
     <div class="serif" style="font-size:84px;line-height:1.0;margin-top:40px">Frontier AI for your contracts.<br/><em style="color:#A5B4FC">Zero</em> secrets in the cloud.</div>
     <div class="mono" style="font-size:22px;color:#34D399;margin-top:34px">Gemini Nano on-device · Gemini in the cloud · Firebase AI Logic</div>
   </div>""")

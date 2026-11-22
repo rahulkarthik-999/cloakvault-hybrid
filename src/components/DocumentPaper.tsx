@@ -103,6 +103,21 @@ export function DocumentPaper({
     }
   };
 
+  // Touch screens: there is no mouseup after adjusting selection handles, so follow selectionchange.
+  useEffect(() => {
+    if (!window.matchMedia?.('(pointer: coarse)').matches) return;
+    let t: number | undefined;
+    const onSel = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(handleMouseUp, 450);
+    };
+    document.addEventListener('selectionchange', onSel);
+    return () => {
+      document.removeEventListener('selectionchange', onSel);
+      window.clearTimeout(t);
+    };
+  });
+
   const applySelectionRedact = (type: PiiType) => {
     if (!selectionPopup) return;
     onRedactSelection(selectionPopup.text, type);
@@ -259,7 +274,7 @@ export function DocumentPaper({
             </div>
             {viewMode === 'redacted' && (
               <span className="text-[11px] text-[#697083]">
-                Tip: Highlight any text with your mouse to redact instantly
+                Tip: Highlight any text to redact it instantly
               </span>
             )}
           </div>

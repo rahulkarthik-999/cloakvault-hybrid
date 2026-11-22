@@ -56,9 +56,9 @@ export function HeaderBar({
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#E5E7EC] bg-white/90 px-4 backdrop-blur">
+    <header className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E5E7EC] bg-white/90 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur lg:h-14 lg:flex-nowrap lg:py-0">
       {/* Left: Wordmark + Editable Document Title */}
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-none">
         <a
           href="/"
           className="flex shrink-0 items-center rounded-md transition hover:opacity-80"
@@ -67,7 +67,7 @@ export function HeaderBar({
           <Wordmark size={26} />
         </a>
 
-        <span className="text-[#CDD2DB]">/</span>
+        <span className="hidden text-[#CDD2DB] sm:inline">/</span>
 
         <input
           id="vault-document-title"
@@ -76,7 +76,7 @@ export function HeaderBar({
           value={activeVault.title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           aria-label="Document title"
-          className="min-w-0 max-w-[340px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none"
+          className="hidden min-w-0 max-w-[340px] truncate rounded px-1.5 sm:block py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none"
         />
 
         <span className="hidden rounded border border-[#E5E7EC] bg-[#F3F4F7] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#4A5061] xl:inline-block">
@@ -84,8 +84,8 @@ export function HeaderBar({
         </span>
       </div>
 
-      {/* Right: Real Runtime Controls */}
-      <div className="flex shrink-0 items-center gap-2">
+      {/* Right: Real Runtime Controls (scrolls sideways on phones) */}
+      <div className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:w-auto lg:shrink-0 lg:overflow-visible lg:px-0 [&>*]:shrink-0">
         {/* On-Device Gemini Nano Control */}
         {capabilities.chromeNanoStatus === 'available' ? (
           <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11.5px] font-medium text-emerald-800">
@@ -153,7 +153,7 @@ export function HeaderBar({
           </button>
 
           {exportOpen && (
-            <div className="absolute right-0 z-40 mt-1.5 w-60 rounded-lg border border-[#E5E7EC] bg-white p-1 shadow-lg">
+            <div className="fixed inset-x-4 top-28 z-40 rounded-lg border border-[#E5E7EC] bg-white p-1 shadow-lg lg:absolute lg:inset-x-auto lg:right-0 lg:top-auto lg:mt-1.5 lg:w-60">
               <button
                 onClick={() => {
                   onExportRedacted();

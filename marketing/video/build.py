@@ -57,8 +57,31 @@ os.makedirs(AUD, exist_ok=True)
 subprocess.run([sys.executable, os.path.join(HERE, "music.py"), os.path.join(AUD, "music.wav"), f"{total:.2f}"],
                check=True, stdout=subprocess.DEVNULL)
 
+# 2b) sound design: synthesize the cue set, then lay every recorded cue on one track
+import numpy as np  # noqa: E402
+from scipy.io import wavfile  # noqa: E402
+
+SFX_DIR = os.path.join(AUD, "sfxgen")
+subprocess.run([sys.executable, os.path.join(HERE, "audio.py"), SFX_DIR, "12"], check=True, stdout=subprocess.DEVNULL)
+SR = 48000
+track = np.zeros((int((total + 2) * SR), 2), dtype=np.float32)
+bank = {}
+for cue_ in m.get("cues", []):
+    name = cue_["name"]
+    if name not in bank:
+        rate, x = wavfile.read(os.path.join(SFX_DIR, "sfx", f"{name}.wav"))
+        bank[name] = x.astype(np.float32) / 32768.0
+    x = bank[name] * cue_["gain"] * 0.42
+    at = int((cue_["t"] - t0) * SR)
+    if 0 <= at < len(track):
+        n = min(len(x), len(track) - at)
+        track[at : at + n] += x[:n]
+wavfile.write(os.path.join(AUD, "sfx.wav"), SR, (np.clip(track, -1, 1) * 32767).astype(np.int16))
+print(f"sfx    {len(m.get('cues', []))} cues")
+
 # 3) mix: narration on markers, score ducked underneath
 inputs, filters, labels = ["-i", os.path.join(AUD, "music.wav")], [], []
+SFX_IN = len(m["scenes"]) + 1  # input index of the sfx track (appended after the narration)
 for k, sc in enumerate(m["scenes"], start=1):
     inputs += ["-i", os.path.join(VO, f"{sc['id']}.mp3")]
     delay = int((sc["t"] - t0 + m["vo_lead"]) * 1000)
@@ -69,9 +92,11 @@ filters.append(f"{''.join(labels)}amix=inputs={n}:normalize=0,apad,atrim=0:{tota
 filters.append("[vo]asplit=2[vo1][vosc]")
 filters.append(f"[0:a]atrim=0:{total:.3f},volume=0.11[mus]")
 filters.append("[mus][vosc]sidechaincompress=threshold=0.01:ratio=14:attack=10:release=700:makeup=1[duck]")
-filters.append(f"[duck][vo1]amix=inputs=2:normalize=0,afade=t=out:st={total-1.6:.2f}:d=1.5,loudnorm=I=-16:TP=-1.5:LRA=11[mix]")
+inputs_sfx = ["-i", os.path.join(AUD, "sfx.wav")]
+filters.append(f"[{SFX_IN}:a]atrim=0:{total:.3f}[sfx]")
+filters.append(f"[duck][vo1][sfx]amix=inputs=3:normalize=0,afade=t=out:st={total-1.6:.2f}:d=1.5,loudnorm=I=-16:TP=-1.5:LRA=11[mix]")
 mix = os.path.join(OUT, "mix.wav")
-ff(*inputs, "-filter_complex", ";".join(filters), "-map", "[mix]", "-ar", "48000", "-t", f"{total:.3f}", mix)
+ff(*inputs, *inputs_sfx, "-filter_complex", ";".join(filters), "-map", "[mix]", "-ar", "48000", "-t", f"{total:.3f}", mix)
 
 # 4) mux
 ff("-i", silent, "-i", mix, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", FINAL)

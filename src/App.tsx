@@ -26,6 +26,7 @@ import {
   checkChromeNanoAvailability,
   discoverContextualPiiOnDevice,
   downloadChromeNanoModel,
+  AIUnavailableError,
   runHybridDeepAudit,
   runHybridTriage,
   streamHybridChatTurn,
@@ -36,6 +37,7 @@ import { VaultSidebar } from './components/VaultSidebar';
 import { DocumentPaper } from './components/DocumentPaper';
 import { InspectorPane } from './components/InspectorPane';
 import { FirebaseConfigModal } from './components/FirebaseConfigModal';
+import { MobileTabBar } from './components/MobileTabBar';
 import type {
   ChatMessage,
   HybridInferenceMode,
@@ -74,6 +76,20 @@ export default function App() {
   const [firebaseModalOpen, setFirebaseModalOpen] = useState(false);
   const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  // A task locked to on-device inference that refused to fall back to the cloud: a privacy win, not an error.
+  const [shieldNotice, setShieldNotice] = useState<string | null>(null);
+  // Phones/tablets show one pane at a time, switched from a bottom tab bar.
+  const [mobilePane, setMobilePane] = useState<'files' | 'doc' | 'insights'>('doc');
+
+  const reportAiFailure = (err: unknown, fallback: string) => {
+    if (err instanceof AIUnavailableError && err.code === 'NANO_REQUIRED') {
+      setAiError(null);
+      setShieldNotice(err.message);
+      return;
+    }
+    setShieldNotice(null);
+    setAiError(err instanceof Error ? err.message : fallback);
+  };
   const [telemetry, setTelemetry] = useState<TelemetryEvent[]>([]);
   const [remotePolicy, setRemotePolicy] = useState<RemotePolicyConfig>(DEFAULT_REMOTE_POLICY);
 
@@ -349,6 +365,7 @@ export default function App() {
 
   const handleRunNanoPiiScan = async () => {
     setAiError(null);
+    setShieldNotice(null);
     setBusyAction('pii');
     try {
       const res = await discoverContextualPiiOnDevice(
@@ -377,7 +394,7 @@ export default function App() {
         redaction.redactedText
       );
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'On-device PII discovery failed.');
+      reportAiFailure(err, 'On-device PII discovery failed.');
     } finally {
       setBusyAction(null);
     }
@@ -385,6 +402,7 @@ export default function App() {
 
   const handleRunTriage = async () => {
     setAiError(null);
+    setShieldNotice(null);
     setBusyAction('triage');
     try {
       const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
@@ -422,7 +440,7 @@ export default function App() {
         redaction.redactedText
       );
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Hybrid triage failed.');
+      reportAiFailure(err, 'Hybrid triage failed.');
     } finally {
       setBusyAction(null);
     }
@@ -430,6 +448,7 @@ export default function App() {
 
   const handleRunDeepAudit = async () => {
     setAiError(null);
+    setShieldNotice(null);
     setBusyAction('audit');
     try {
       const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
@@ -469,7 +488,7 @@ export default function App() {
         redaction.redactedText
       );
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Hybrid audit failed.');
+      reportAiFailure(err, 'Hybrid audit failed.');
     } finally {
       setBusyAction(null);
     }
@@ -477,6 +496,7 @@ export default function App() {
 
   const handleSendChat = async (question: string, mode: HybridInferenceMode) => {
     setAiError(null);
+    setShieldNotice(null);
     setChatStreaming(true);
 
     const userMsg: ChatMessage = {
@@ -572,7 +592,7 @@ export default function App() {
         ...v,
         chatHistory: v.chatHistory.filter((m) => m.id !== streamMsgId),
       }));
-      setAiError(err instanceof Error ? err.message : 'Hybrid chat request failed.');
+      reportAiFailure(err, 'Hybrid chat request failed.');
     } finally {
       setChatStreaming(false);
     }
@@ -606,14 +626,17 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F3F4F7] text-[#0E1015] lg:h-screen lg:overflow-hidden">
+    <div className="flex min-h-[100dvh] flex-col bg-[#F3F4F7] pb-[calc(64px+env(safe-area-inset-bottom))] text-[#0E1015] lg:h-screen lg:overflow-hidden lg:pb-0">
       <HeaderBar
         activeVault={activeVault}
         onUpdateTitle={(title) => updateActiveVault((v) => ({ ...v, title }))}
         capabilities={capabilities}
         remotePolicy={remotePolicy}
         airGapMode={airGapMode}
-        onToggleAirGap={() => setAirGapMode((v) => !v)}
+        onToggleAirGap={() => {
+          setAirGapMode((v) => !v);
+          setShieldNotice(null);
+        }}
         onDownloadNano={handleDownloadNano}
         onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
         onExportRedacted={() => exportRedactedDocument(activeVault)}
@@ -622,6 +645,7 @@ export default function App() {
       />
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className={`${mobilePane === 'files' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:contents`}>
         <VaultSidebar
           vaults={vaults}
           activeVaultId={activeVault.id}
@@ -630,14 +654,20 @@ export default function App() {
             setHighlightedQuote(null);
             setLastSyncMessage(null);
             setAiError(null);
+            setMobilePane('doc');
           }}
           onDeleteVault={handleDeleteVault}
-          onLoadSample={handleLoadSample}
+          onLoadSample={(id) => {
+            handleLoadSample(id);
+            setMobilePane('doc');
+          }}
           onUploadFile={handleUploadFile}
           onCreateBlankVault={handleCreateBlankVault}
           uploadingFile={uploadingFile}
         />
+        </div>
 
+        <div className={`${mobilePane === 'doc' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:contents`}>
         <DocumentPaper
           vault={activeVault}
           highlightedQuote={highlightedQuote}
@@ -650,7 +680,9 @@ export default function App() {
           syncBusy={busyAction === 'sync'}
           lastSyncMessage={lastSyncMessage}
         />
+        </div>
 
+        <div className={`${mobilePane === 'insights' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:contents`}>
         <InspectorPane
           vault={activeVault}
           capabilities={capabilities}
@@ -661,18 +693,36 @@ export default function App() {
           chatStreaming={chatStreaming}
           aiError={aiError}
           onDismissError={() => setAiError(null)}
+          shieldNotice={shieldNotice}
+          onDismissShield={() => setShieldNotice(null)}
+          onDisableAirGap={() => {
+            setAirGapMode(false);
+            setShieldNotice(null);
+          }}
           onRunNanoPiiScan={handleRunNanoPiiScan}
           onRunTriage={handleRunTriage}
           onRunDeepAudit={handleRunDeepAudit}
           onSendChat={handleSendChat}
           onToggleEntity={handleToggleEntity}
           onAddCustomEntity={handleAddCustomEntity}
-          onSelectClauseQuote={(q) => setHighlightedQuote(q)}
+          onSelectClauseQuote={(q) => {
+            setHighlightedQuote(q);
+            setMobilePane('doc');
+          }}
           onDownloadNano={handleDownloadNano}
           onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
           onExportCertificate={() => void exportZeroLeakCertificate(activeVault)}
         />
+        </div>
       </div>
+
+      <MobileTabBar
+        active={mobilePane}
+        onChange={setMobilePane}
+        riskScore={activeVault.auditReport?.riskScore ?? null}
+        busy={busyAction === 'audit' || chatStreaming}
+        alert={Boolean(aiError || shieldNotice)}
+      />
 
       <FirebaseConfigModal
         open={firebaseModalOpen}

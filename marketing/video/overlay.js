@@ -84,6 +84,22 @@
     if (!el) return;
     if (html) { el.innerHTML = html; el.classList.add('on'); } else el.classList.remove('on');
   };
+  // Cinematic zoom: move the centre of `sel` toward the viewport centre and scale the app root.
+  window.__cvZoom = (sel, scale) => {
+    const root = document.getElementById('root');
+    if (!root) return;
+    root.style.transition = 'transform 1s cubic-bezier(.65,0,.35,1)';
+    root.style.transformOrigin = '0 0';
+    if (!sel) { root.style.transform = 'none'; return; }
+    const el = document.querySelector(sel);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const W = innerWidth, H = innerHeight, s = scale || 1.6;
+    const cx = r.left + r.width / 2, cy = r.top + Math.min(r.height, H) / 2;
+    const tx = Math.min(0, Math.max(W - W * s, W / 2 - cx * s));
+    const ty = Math.min(0, Math.max(H - H * s, H / 2 - cy * s));
+    root.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  };
   window.__cvCursor = (show) => {
     const el = document.getElementById('cv-cursor');
     if (el) el.style.opacity = show ? 1 : 0;

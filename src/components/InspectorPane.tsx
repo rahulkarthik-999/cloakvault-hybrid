@@ -14,6 +14,7 @@ import {
   Download,
   ArrowUpRight,
   FileCode2,
+  ShieldCheck as ShieldCheckIcon,
 } from 'lucide-react';
 import { segmentTokenizedOutput, rehydrateText } from '../lib/piiEngine';
 import type {
@@ -36,6 +37,9 @@ interface InspectorPaneProps {
   chatStreaming: boolean;
   aiError: string | null;
   onDismissError: () => void;
+  shieldNotice: string | null;
+  onDismissShield: () => void;
+  onDisableAirGap: () => void;
   onRunNanoPiiScan: () => Promise<void>;
   onRunTriage: () => Promise<void>;
   onRunDeepAudit: () => Promise<void>;
@@ -137,6 +141,9 @@ export function InspectorPane({
   chatStreaming,
   aiError,
   onDismissError,
+  shieldNotice,
+  onDismissShield,
+  onDisableAirGap,
   onRunNanoPiiScan,
   onRunTriage,
   onRunDeepAudit,
@@ -198,7 +205,7 @@ export function InspectorPane({
   };
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-t border-[#E5E7EC] bg-white lg:w-[440px] lg:border-l lg:border-t-0">
+    <aside data-pane="inspector" className="flex w-full shrink-0 flex-col border-t border-[#E5E7EC] bg-white lg:w-[440px] lg:border-l lg:border-t-0">
       {/* Inspector Tab Bar */}
       <div className="flex shrink-0 border-b border-[#E5E7EC] bg-[#FAFBFC] px-2 pt-1.5">
         {(
@@ -229,6 +236,46 @@ export function InspectorPane({
       </div>
 
       {/* Inline Actionable Error Banner (Zero silent fake fallbacks) */}
+      {shieldNotice && (
+        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-950">
+          <div className="flex items-start gap-2.5">
+            <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+            <div className="flex-1">
+              <p className="text-[12.5px] font-semibold">Held on-device — 0 bytes sent</p>
+              <p className="mt-0.5 leading-snug text-emerald-900/80">
+                {airGapMode ? 'Air-gap mode' : 'This task'} locks inference to this device. Gemini
+                Nano isn’t installed in this browser, so CloakVault stopped instead of falling back
+                to the cloud.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {capabilities.chromeNanoStatus === 'downloadable' && (
+                  <button
+                    onClick={onDownloadNano}
+                    className="rounded-full bg-emerald-700 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-800"
+                  >
+                    Download Gemini Nano
+                  </button>
+                )}
+                {airGapMode && (
+                  <button
+                    onClick={onDisableAirGap}
+                    className="rounded-full border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100/60"
+                  >
+                    Allow sanitized cloud fallback
+                  </button>
+                )}
+                <button
+                  onClick={onDismissShield}
+                  className="px-1 py-1 text-[11px] text-emerald-800/70 underline underline-offset-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {aiError && (
         <div className="border-b border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-900">
           <div className="flex items-start gap-2">

@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="public/favicon.svg" width="72" alt="CloakVault logo" />
-
-# CloakVault
+<img src="marketing/brand-source-logo.png" width="420" alt="CloakVault" />
 
 ### Frontier AI for your contracts. Zero secrets in the cloud.
 
@@ -110,6 +108,7 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 - **Outbound payload inspector** + SHA-256 receipts; **Strict PII Shield** blocks escalation if anything is exposed
 - **Air-gap mode** for fully on-device operation
 - **Exports**: redacted `.txt`, redlined audit `.md`, JSON zero-leak certificate
+- **Works on phones & tablets (Android / iOS)**: mobile tab layout, touch select-to-redact, installable **PWA** with an offline app shell (no AI calls or documents are cached)
 - **Chrome side-panel extension** (`chrome-extension/`) — scan any web page's terms locally, hand off to the workbench
 - Three realistic sample case files: freelance MSA/NDA, SaaS ledger, itemized hospital bill + EOB
 
@@ -117,7 +116,7 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 
 ## Demo video
 
-📺 **YouTube:** _link added on submission_ — 2:56, English narration + English subtitles.
+📺 **YouTube:** _link added on submission_ — under 3 minutes, English narration + English subtitles, illustrated chapters and original sound design.
 
 The video is generated reproducibly from the real app (live Firebase AI Logic calls) — see [`marketing/`](marketing/README.md).
 

@@ -13,12 +13,14 @@ from playwright.async_api import async_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from captions import chunks  # noqa: E402
+import cards  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "out")
 FRAMES = os.path.join(OUT, "frames")
 BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5173").rstrip("/")
-PAD = 0.55  # breathing room after each narration line
+PAD = 0.3  # breathing room after each narration line
+CHAPTER_SECS = 2.1  # illustrated chapter cards (no narration)
 VO_LEAD = 0.25  # narration starts this long after the scene cut
 
 script = json.load(open(os.path.join(HERE, "script.json"), encoding="utf-8"))
@@ -123,6 +125,11 @@ def caption_chunks(scene_id):
     return chunks(VO[scene_id], DUR[scene_id])
 
 
+CARD_HOOK = cards.CARD_HOOK
+CARD_OUTRO = cards.CARD_OUTRO
+CARD_STACK = CARD_STACK.replace(DARK, cards.BG)
+
+
 async def main():
     os.makedirs(FRAMES, exist_ok=True)
     for f in os.listdir(FRAMES):
@@ -151,6 +158,11 @@ async def main():
         cdp.on("Page.screencastFrame", on_frame)
 
         markers = []
+        cues = []  # sound-design cues: {t, name, gain}
+
+        def cue(name, gain=1.0, at=None):
+            cues.append({"t": at if at is not None else time.time(), "name": name, "gain": gain})
+
         mouse = {"x": 800, "y": 450}
 
         async def move(x, y, steps=28):
@@ -161,11 +173,37 @@ async def main():
             box = await locator.bounding_box()
             await move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
             await asyncio.sleep(pause)
+            cue("click", 0.55)
             await page.mouse.click(mouse["x"], mouse["y"])
 
         async def caps(scene_id):
             await asyncio.sleep(VO_LEAD)
             await page.evaluate("c => window.__cvCaptions(c)", caption_chunks(scene_id))
+
+        async def card(html, sfx="whoosh"):
+            cue(sfx, 0.7)
+            await page.evaluate("h => window.__cvCard(h)", html)
+
+        async def chapter(html):
+            await page.evaluate("() => window.__cvCursor(false)")
+            cue("riser", 0.45)
+            await card(html)
+            cue("sub", 0.5, at=time.time() + 0.35)
+            await asyncio.sleep(CHAPTER_SECS)
+            cue("whoosh", 0.5)
+            await page.evaluate("() => window.__cvCard(null)")
+            await asyncio.sleep(0.5)
+            await page.evaluate("() => window.__cvCursor(true)")
+
+        async def zoom(sel, scale, hold):
+            await page.evaluate("() => window.__cvCursor(false)")
+            cue("whoosh", 0.3)
+            await page.evaluate("([s, k]) => window.__cvZoom(s, k)", [sel, scale])
+            await asyncio.sleep(hold)
+            cue("whoosh", 0.22)
+            await page.evaluate("() => window.__cvZoom(null)")
+            await asyncio.sleep(1.0)
+            await page.evaluate("() => window.__cvCursor(true)")
 
         async def scene(scene_id, action):
             t0 = time.time()
@@ -185,11 +223,16 @@ async def main():
         await cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 92, "maxWidth": 1920, "maxHeight": 1080})
         await page.wait_for_timeout(400)
         rec_start = time.time()
+        # hook chips flip from raw PII to tokens (timings mirror cards._chip)
+        for i in range(4):
+            cue("tick", 0.5, at=rec_start + 1.6 + i * 0.28 + 0.5)
+        cue("confirm", 0.35, at=rec_start + 1.6 + 3 * 0.28 + 1.1)
 
         async def s01():
             pass
 
         async def s02():
+            cue("whoosh", 0.6)
             await page.evaluate("() => window.__cvCard(null)")
             await page.evaluate("() => window.__cvCursor(true)")
             await move(760, 520, steps=40)
@@ -208,7 +251,8 @@ async def main():
             await move(700, 600, steps=30)
             await asyncio.sleep(3.6)
             await click(page.get_by_role("button", name="Redacted View"))
-            await move(760, 560, steps=30)
+            await asyncio.sleep(0.4)
+            await zoom(".paper-sheet", 1.55, 2.6)
 
         async def s05():
             rect = await page.evaluate(
@@ -251,7 +295,8 @@ async def main():
         async def s07():
             await click(page.get_by_text("Run Hybrid Audit", exact=True).first)
             await page.get_by_text("/ 100").first.wait_for(timeout=45000)
-            await move(1300, 300, steps=30)
+            cue("confirm", 0.6)
+            await zoom("aside[data-pane=inspector]", 1.45, 2.0)
 
         async def s08():
             await click(page.get_by_role("button", name="Locate").first)
@@ -264,8 +309,13 @@ async def main():
 
         async def s09():
             await click(page.get_by_role("button", name="Outbound Cloud Payload"))
-            await move(700, 500, steps=30)
-            await asyncio.sleep(5)
+            await asyncio.sleep(0.3)
+            # bring the SHA-256 proof box (top of the sheet) into view before zooming on it
+            await page.evaluate("""() => { let el = document.querySelector('.paper-sheet');
+              while (el && !(el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== 'visible')) el = el.parentElement;
+              if (el) el.scrollTo({top: 0, behavior: 'smooth'}); }""")
+            await asyncio.sleep(0.6)
+            await zoom(".paper-sheet", 1.6, 4.2)
             await page.mouse.wheel(0, 300)
 
         async def s10():
@@ -287,7 +337,9 @@ async def main():
             await click(page.get_by_role("button", name=re.compile(r"^Risk Audit")))
             await asyncio.sleep(0.6)
             await click(page.get_by_role("button", name="Quick Triage"))
-            await asyncio.sleep(6)
+            await asyncio.sleep(1.2)
+            cue("pulse", 0.5)
+            await zoom("aside[data-pane=inspector]", 1.5, 3.2)
             await click(page.locator("header button", has_text="Air-gap").first)
 
         async def s13():
@@ -298,10 +350,10 @@ async def main():
         async def s14():
             await page.evaluate("() => window.__cvPanel(null)")
             await page.evaluate("() => window.__cvCursor(false)")
-            await page.evaluate("h => window.__cvCard(h)", CARD_STACK)
+            await card(CARD_STACK)
 
         async def s15():
-            await page.evaluate("h => window.__cvCard(h)", CARD_OUTRO)
+            await card(CARD_OUTRO, sfx="chime")
 
         for sid, fn in [
             ("s01_hook", s01), ("s02_landing", s02), ("s03_open", s03), ("s04_redact", s04),
@@ -309,6 +361,12 @@ async def main():
             ("s09_proof", s09), ("s10_ask", s10), ("s11_telemetry", s11), ("s12_airgap", s12),
             ("s13_samples", s13), ("s14_stack", s14), ("s15_outro", s15),
         ]:
+            if sid == "s04_redact":
+                await chapter(cards.CHAPTER_SHIELD)
+            elif sid == "s07_audit":
+                await chapter(cards.CHAPTER_ROUTE)
+            elif sid == "s09_proof":
+                await chapter(cards.CHAPTER_PROOF)
             await scene(sid, fn)
 
         end = time.time() + 1.2
@@ -316,7 +374,7 @@ async def main():
         await cdp.send("Page.stopScreencast")
         await browser.close()
 
-    json.dump({"start": rec_start, "end": end, "scenes": markers, "vo_lead": VO_LEAD},
+    json.dump({"start": rec_start, "end": end, "scenes": markers, "cues": cues, "vo_lead": VO_LEAD},
               open(os.path.join(OUT, "markers.json"), "w"), indent=2)
     print(f"frames={n_frames}  length={end - markers[0]['t']:.1f}s")
 

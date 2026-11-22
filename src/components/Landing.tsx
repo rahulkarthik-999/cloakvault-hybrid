@@ -281,6 +281,56 @@ const FAQ = [
   },
 ];
 
+
+const TRUST = [
+  { icon: Lock, title: '0 bytes of raw PII to the cloud', proof: 'Tokenized before any cloud call', href: 'src/lib/piiEngine.ts' },
+  { icon: Fingerprint, title: 'SHA-256 verifiable', proof: 'Web Crypto receipt per audit', href: 'src/lib/cryptoProof.ts' },
+  { icon: ShieldCheck, title: 'App Check protected', proof: 'reCAPTCHA Enterprise on every AI call', href: 'src/lib/firebaseClient.ts' },
+  { icon: Database, title: 'Server-enforced rules', proof: 'Firestore rejects non-zero-leak writes', href: 'firestore.rules' },
+  { icon: WifiOff, title: 'Works air-gapped', proof: 'On-device only, refuses rather than leaks', href: 'src/lib/hybridAiService.ts' },
+  { icon: UserRound, title: 'No account required', proof: 'Docs stay in your browser’s IndexedDB', href: 'src/lib/localVaultStore.ts' },
+  { icon: Github, title: 'Open source · Apache-2.0', proof: 'Every claim here is auditable', href: 'LICENSE' },
+  { icon: BadgeCheck, title: 'Tested redaction core', proof: 'Vitest suite for redact & re-hydrate', href: 'src/lib/piiEngine.test.ts' },
+];
+
+function TrustBadges() {
+  return (
+    <section aria-label="Trust and verification" className="mx-auto max-w-6xl px-5 pt-16">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-700">Trust, verified</div>
+          <h2 className="mt-2 font-display text-[32px] leading-tight">Every promise links to the code that keeps it.</h2>
+        </div>
+        <a href={REPO_URL} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[13px] font-medium text-[#4A5061] hover:text-[#0E1015]">
+          Audit the repo <ArrowUpRight className="h-3.5 w-3.5" />
+        </a>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {TRUST.map(({ icon: Icon, title, proof, href }) => (
+          <a
+            key={title}
+            href={`${REPO_URL}/blob/main/${href}`}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-start gap-3 rounded-2xl border border-[#E5E7EC] bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_16px_32px_-20px_rgba(5,150,105,0.45)]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+              <Icon className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold leading-snug text-[#0E1015]">{title}</span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-[#697083]">{proof}</span>
+              <span className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10.5px] text-emerald-700 opacity-70 transition group-hover:opacity-100">
+                verify <ArrowUpRight className="h-3 w-3" />
+              </span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Landing() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -345,7 +395,7 @@ export function Landing() {
             </a>
             <h1 className="text-balance font-display text-[52px] leading-[1.02] tracking-[-0.01em] sm:text-[68px]">
               Frontier AI for your contracts.{' '}
-              <em className="bg-gradient-to-r from-emerald-600 to-indigo-600 bg-clip-text pr-1 text-transparent">
+              <em className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text pr-1 text-transparent">
                 Zero
               </em>{' '}
               secrets in the cloud.
@@ -405,6 +455,8 @@ export function Landing() {
           ))}
         </div>
       </section>
+
+      <TrustBadges />
 
       {/* Problem / audience */}
       <section className="mx-auto max-w-6xl px-5 py-24">
