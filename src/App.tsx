@@ -124,7 +124,7 @@ export default function App() {
         };
         await saveLocalVault(imported);
         initialVaults = [imported, ...initialVaults];
-        window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState({}, '', '/app');
       } else if (storedVaults.length === 0) {
         await saveLocalVault(initialVaults[0]);
       }
@@ -606,7 +606,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F6F5F1] text-[#171717] lg:h-screen lg:overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-[#F3F4F7] text-[#0E1015] lg:h-screen lg:overflow-hidden">
       <HeaderBar
         activeVault={activeVault}
         onUpdateTitle={(title) => updateActiveVault((v) => ({ ...v, title }))}

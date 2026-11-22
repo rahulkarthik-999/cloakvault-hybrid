@@ -51,8 +51,8 @@ interface InspectorPaneProps {
 const SEVERITY_BADGE: Record<AuditFinding['severity'], string> = {
   CRITICAL: 'bg-red-50 text-red-800 border-red-200',
   HIGH: 'bg-amber-50 text-amber-800 border-amber-200',
-  MEDIUM: 'bg-blue-50 text-blue-800 border-blue-200',
-  LOW: 'bg-stone-100 text-stone-700 border-stone-200',
+  MEDIUM: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  LOW: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
 const SUGGESTED_QUESTIONS: Record<DocumentCategory, string[]> = {
@@ -81,7 +81,7 @@ function renderPlainWithBold(raw: string) {
   const parts = raw.split(/(\*\*[^*\n]+\*\*)/g);
   return parts.map((part, idx) =>
     part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
-      <strong key={idx} className="font-semibold text-[#171717]">
+      <strong key={idx} className="font-semibold text-[#0E1015]">
         {part.slice(2, -2)}
       </strong>
     ) : (
@@ -113,8 +113,8 @@ function RehydratableSpan({
             }
             className={`mx-0.5 inline-block rounded px-1 py-0.2 font-mono text-[11px] font-medium ${
               rehydrate
-                ? 'bg-teal-50 text-teal-900 ring-1 ring-teal-200'
-                : 'bg-blue-50 text-blue-900 ring-1 ring-blue-200'
+                ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200'
+                : 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200'
             }`}
           >
             {seg.text}
@@ -198,9 +198,9 @@ export function InspectorPane({
   };
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-t border-[#E4E2DC] bg-white lg:w-[440px] lg:border-l lg:border-t-0">
+    <aside className="flex w-full shrink-0 flex-col border-t border-[#E5E7EC] bg-white lg:w-[440px] lg:border-l lg:border-t-0">
       {/* Inspector Tab Bar */}
-      <div className="flex shrink-0 border-b border-[#E4E2DC] bg-[#FAF9F6] px-2 pt-1.5">
+      <div className="flex shrink-0 border-b border-[#E5E7EC] bg-[#FAFBFC] px-2 pt-1.5">
         {(
           [
             ['audit', 'Risk Audit', vault.auditReport ? String(vault.auditReport.riskScore) : null],
@@ -214,13 +214,13 @@ export function InspectorPane({
             onClick={() => setTab(id)}
             className={`relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition ${
               tab === id
-                ? 'border-b-2 border-[#171717] text-[#171717]'
-                : 'text-[#78716C] hover:text-[#171717]'
+                ? 'border-b-2 border-[#0E1015] text-[#0E1015]'
+                : 'text-[#697083] hover:text-[#0E1015]'
             }`}
           >
             <span>{label}</span>
             {badge && (
-              <span className="rounded bg-[#ECEAE3] px-1.5 py-0.5 font-mono text-[10px] text-[#44403C]">
+              <span className="rounded bg-[#E8EAEF] px-1.5 py-0.5 font-mono text-[10px] text-[#3A3F4D]">
                 {badge}
               </span>
             )}
@@ -239,7 +239,7 @@ export function InspectorPane({
                 {capabilities.chromeNanoStatus === 'downloadable' && (
                   <button
                     onClick={onDownloadNano}
-                    className="rounded bg-[#171717] px-2 py-1 text-[11px] font-medium text-white"
+                    className="rounded bg-[#0E1015] px-2 py-1 text-[11px] font-medium text-white"
                   >
                     Download Gemini Nano
                   </button>
@@ -272,7 +272,7 @@ export function InspectorPane({
             <button
               onClick={onRunDeepAudit}
               disabled={busyAction !== null}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#171717] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#2E2E2B] disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#0E1015] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#262A35] disabled:opacity-50"
             >
               {busyAction === 'audit' ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -288,7 +288,7 @@ export function InspectorPane({
             <button
               onClick={onRunTriage}
               disabled={busyAction !== null}
-              className="rounded-md border border-[#E4E2DC] bg-white px-3 py-2 text-xs font-medium text-[#171717] transition hover:bg-[#F6F5F1] disabled:opacity-50"
+              className="rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#0E1015] transition hover:bg-[#F3F4F7] disabled:opacity-50"
               title="Run fast on-device triage summary via Gemini Nano"
             >
               {busyAction === 'triage' ? 'Triaging…' : 'Quick Triage'}
@@ -297,11 +297,11 @@ export function InspectorPane({
 
           {/* Honest Runtime Setup Callout when no live AI runtime is ready yet */}
           {!hasAnyLiveEngine && !vault.auditReport && (
-            <div className="mb-4 rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-4">
-              <h3 className="text-xs font-semibold text-[#171717]">
+            <div className="mb-4 rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-4">
+              <h3 className="text-xs font-semibold text-[#0E1015]">
                 Activate Real Hybrid Inference (No Mock Data)
               </h3>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-[#57534E]">
+              <p className="mt-1 text-[11.5px] leading-relaxed text-[#4A5061]">
                 CloakVault runs real neural inference—never canned responses. Enable one or both
                 engines to audit documents:
               </p>
@@ -309,7 +309,7 @@ export function InspectorPane({
                 {capabilities.chromeNanoStatus === 'downloadable' && (
                   <button
                     onClick={onDownloadNano}
-                    className="flex w-full items-center justify-between rounded-md border border-[#171717] bg-[#171717] px-3 py-2 text-xs font-medium text-white hover:bg-[#2E2E2B]"
+                    className="flex w-full items-center justify-between rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white hover:bg-[#262A35]"
                   >
                     <span className="inline-flex items-center gap-1.5">
                       <Download className="h-3.5 w-3.5" />
@@ -320,31 +320,69 @@ export function InspectorPane({
                 )}
                 <button
                   onClick={onOpenFirebaseModal}
-                  className="flex w-full items-center justify-between rounded-md border border-[#E4E2DC] bg-white px-3 py-2 text-xs font-medium text-[#171717] hover:bg-[#F0EFEA]"
+                  className="flex w-full items-center justify-between rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#0E1015] hover:bg-[#ECEEF2]"
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <Cloud className="h-3.5 w-3.5 text-blue-700" />
+                    <Cloud className="h-3.5 w-3.5 text-indigo-700" />
                     2. Connect Firebase AI Logic (Cloud Gemini)
                   </span>
-                  <span className="font-mono text-[10px] text-[#78716C]">Spark Free Tier</span>
+                  <span className="font-mono text-[10px] text-[#697083]">Spark Free Tier</span>
                 </button>
               </div>
             </div>
           )}
 
           {!vault.auditReport ? (
-            <div className="rounded-lg border border-dashed border-[#D6D3CB] p-6 text-center">
-              <p className="font-serif text-base text-[#171717]">No audit report yet</p>
-              <p className="mt-1 text-xs leading-relaxed text-[#78716C]">
-                Click <strong>Run Hybrid Audit</strong> to send only the redacted payload via
-                Firebase AI Logic, generate clause-level risk scores &amp; counter-redlines, and
-                re-hydrate entities locally.
+            <div className="rounded-xl border border-[#E5E7EC] bg-[#FAFBFC] p-5">
+              <p className="font-display text-[22px] leading-tight text-[#0E1015]">
+                Your document never left this device.
               </p>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#697083]">
+                Personal data is already swapped for local tokens. Here’s the 30-second tour:
+              </p>
+              <ol className="mt-4 space-y-3">
+                {[
+                  {
+                    n: 1,
+                    lane: 'device',
+                    t: 'Check the shield',
+                    d: 'Black chips in the document are redacted on-device. Highlight any text to redact more.',
+                  },
+                  {
+                    n: 2,
+                    lane: 'cloud',
+                    t: 'Run Hybrid Audit',
+                    d: 'Only tokens go to Gemini via Firebase AI Logic. Findings are re-hydrated here.',
+                  },
+                  {
+                    n: 3,
+                    lane: 'device',
+                    t: 'Verify the wire',
+                    d: 'Open “Outbound Cloud Payload” to see the exact bytes sent and their SHA-256 hashes.',
+                  },
+                ].map((s) => (
+                  <li key={s.n} className="flex gap-3">
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold ${
+                        s.lane === 'device'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-indigo-100 text-indigo-800'
+                      }`}
+                    >
+                      {s.n}
+                    </span>
+                    <div>
+                      <div className="text-[12.5px] font-semibold text-[#0E1015]">{s.t}</div>
+                      <div className="text-[11.5px] leading-relaxed text-[#697083]">{s.d}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
           ) : (
             <div className="space-y-4">
               {/* Scorecard Summary */}
-              <div className="rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-3.5">
+              <div className="rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
                     <span
@@ -353,20 +391,20 @@ export function InspectorPane({
                           ? 'text-red-700'
                           : vault.auditReport.riskScore >= 45
                           ? 'text-amber-700'
-                          : 'text-teal-700'
+                          : 'text-emerald-700'
                       }`}
                     >
                       {vault.auditReport.riskScore}
                     </span>
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716C]">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#697083]">
                       / 100 · {vault.auditReport.riskVerdict.replace('_', ' ')}
                     </span>
                   </div>
                   <span
                     className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
                       vault.auditReport.inferenceSource === 'ON_DEVICE'
-                        ? 'border-teal-200 bg-teal-50 text-teal-800'
-                        : 'border-blue-200 bg-blue-50 text-blue-800'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-indigo-200 bg-indigo-50 text-indigo-800'
                     }`}
                   >
                     {vault.auditReport.inferenceSource === 'IN_CLOUD' ? (
@@ -378,7 +416,7 @@ export function InspectorPane({
                   </span>
                 </div>
 
-                <p className="mt-2 text-xs leading-relaxed text-[#292524]">
+                <p className="mt-2 text-xs leading-relaxed text-[#1E2129]">
                   <RehydratableSpan
                     text={vault.auditReport.executiveSummary}
                     vault={vault}
@@ -386,15 +424,15 @@ export function InspectorPane({
                   />
                 </p>
 
-                <div className="mt-3 flex items-center justify-between border-t border-[#E4E2DC] pt-2.5">
-                  <span className="font-mono text-[10px] text-teal-800">
+                <div className="mt-3 flex items-center justify-between border-t border-[#E5E7EC] pt-2.5">
+                  <span className="font-mono text-[10px] text-emerald-800">
                     {vault.auditReport.piiBytesProtected} B PII kept local
                   </span>
-                  <div className="flex rounded border border-[#E4E2DC] bg-white p-0.5 text-[10.5px]">
+                  <div className="flex rounded border border-[#E5E7EC] bg-white p-0.5 text-[10.5px]">
                     <button
                       onClick={() => setRehydrate(true)}
                       className={`rounded px-2 py-0.5 font-medium ${
-                        rehydrate ? 'bg-[#171717] text-white' : 'text-[#57534E]'
+                        rehydrate ? 'bg-[#0E1015] text-white' : 'text-[#4A5061]'
                       }`}
                     >
                       Re-Hydrated
@@ -402,7 +440,7 @@ export function InspectorPane({
                     <button
                       onClick={() => setRehydrate(false)}
                       className={`rounded px-2 py-0.5 font-medium ${
-                        !rehydrate ? 'bg-[#171717] text-white' : 'text-[#57534E]'
+                        !rehydrate ? 'bg-[#0E1015] text-white' : 'text-[#4A5061]'
                       }`}
                     >
                       Cloud Tokens
@@ -416,7 +454,7 @@ export function InspectorPane({
                 {vault.auditReport.findings.map((finding) => (
                   <article
                     key={finding.id}
-                    className="rounded-lg border border-[#E4E2DC] bg-white p-3.5 transition hover:border-[#C7C3B8]"
+                    className="rounded-lg border border-[#E5E7EC] bg-white p-3.5 transition hover:border-[#C3C8D2]"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -427,7 +465,7 @@ export function InspectorPane({
                         >
                           {finding.severity}
                         </span>
-                        <h4 className="text-[12.5px] font-semibold text-[#171717]">
+                        <h4 className="text-[12.5px] font-semibold text-[#0E1015]">
                           <RehydratableSpan
                             text={finding.title}
                             vault={vault}
@@ -442,7 +480,7 @@ export function InspectorPane({
                               rehydrateText(finding.clauseQuote, vault.entities)
                             )
                           }
-                          className="inline-flex shrink-0 items-center gap-0.5 rounded border border-[#E4E2DC] px-1.5 py-0.5 text-[10px] font-medium text-[#57534E] hover:bg-[#F6F5F1] hover:text-[#171717]"
+                          className="inline-flex shrink-0 items-center gap-0.5 rounded border border-[#E5E7EC] px-1.5 py-0.5 text-[10px] font-medium text-[#4A5061] hover:bg-[#F3F4F7] hover:text-[#0E1015]"
                           title="Scroll to & highlight this clause in the document"
                         >
                           Locate
@@ -451,7 +489,7 @@ export function InspectorPane({
                       )}
                     </div>
 
-                    <p className="mt-2 text-[12px] leading-relaxed text-[#44403C]">
+                    <p className="mt-2 text-[12px] leading-relaxed text-[#3A3F4D]">
                       <RehydratableSpan
                         text={finding.explanation}
                         vault={vault}
@@ -461,7 +499,7 @@ export function InspectorPane({
 
                     {/* Side-by-Side / Stacked Redline Diff */}
                     {(finding.clauseQuote || finding.suggestedRedline) && (
-                      <div className="mt-2.5 space-y-1.5 rounded-md border border-[#ECEAE3] bg-[#FAF9F6] p-2.5 font-mono text-[11px]">
+                      <div className="mt-2.5 space-y-1.5 rounded-md border border-[#E8EAEF] bg-[#FAFBFC] p-2.5 font-mono text-[11px]">
                         {finding.clauseQuote && (
                           <div className="rounded bg-red-50/80 px-2 py-1 text-red-900 line-through decoration-red-400">
                             <RehydratableSpan
@@ -472,12 +510,12 @@ export function InspectorPane({
                           </div>
                         )}
                         {finding.suggestedRedline && (
-                          <div className="rounded bg-teal-50/90 px-2 py-1.5 text-teal-950">
-                            <div className="mb-1 flex items-center justify-between text-[9.5px] font-semibold uppercase tracking-wider text-teal-800">
+                          <div className="rounded bg-emerald-50/90 px-2 py-1.5 text-emerald-950">
+                            <div className="mb-1 flex items-center justify-between text-[9.5px] font-semibold uppercase tracking-wider text-emerald-800">
                               <span>Proposed Redline</span>
                               <button
                                 onClick={() => handleCopyRedline(finding)}
-                                className="inline-flex items-center gap-1 rounded border border-teal-200 bg-white px-1.5 py-0.5 font-sans text-[10px] font-medium text-teal-900 hover:bg-teal-50"
+                                className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-white px-1.5 py-0.5 font-sans text-[10px] font-medium text-emerald-900 hover:bg-emerald-50"
                               >
                                 {copiedId === finding.id ? (
                                   <>
@@ -502,7 +540,7 @@ export function InspectorPane({
                       </div>
                     )}
 
-                    <div className="mt-2 text-[11.5px] text-[#292524]">
+                    <div className="mt-2 text-[11.5px] text-[#1E2129]">
                       <span className="font-semibold">Action: </span>
                       <RehydratableSpan
                         text={finding.recommendedAction}
@@ -515,11 +553,11 @@ export function InspectorPane({
               </div>
 
               {vault.auditReport.missingProtections.length > 0 && (
-                <div className="rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-3">
-                  <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-[#57534E]">
+                <div className="rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-3">
+                  <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-[#4A5061]">
                     Missing Protections
                   </div>
-                  <ul className="list-disc space-y-1 pl-4 text-xs text-[#292524]">
+                  <ul className="list-disc space-y-1 pl-4 text-xs text-[#1E2129]">
                     {vault.auditReport.missingProtections.map((m, idx) => (
                       <li key={idx}>{m}</li>
                     ))}
@@ -537,7 +575,7 @@ export function InspectorPane({
           <button
             onClick={onRunNanoPiiScan}
             disabled={busyAction !== null}
-            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#171717] bg-[#171717] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#2E2E2B] disabled:opacity-50"
+            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#262A35] disabled:opacity-50"
           >
             {busyAction === 'pii' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -559,14 +597,14 @@ export function InspectorPane({
               value={customTerm}
               onChange={(e) => setCustomTerm(e.target.value)}
               placeholder="Add custom phrase to redact…"
-              className="min-w-0 flex-1 rounded-md border border-[#E4E2DC] bg-[#FAF9F6] px-2.5 py-1.5 text-xs text-[#171717] placeholder-[#A8A29E] focus:border-[#171717] focus:bg-white focus:outline-none"
+              className="min-w-0 flex-1 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2.5 py-1.5 text-xs text-[#0E1015] placeholder-[#9CA2B0] focus:border-[#0E1015] focus:bg-white focus:outline-none"
             />
             <select
               id="custom-pii-type"
               name="customPiiType"
               value={customType}
               onChange={(e) => setCustomType(e.target.value as PiiType)}
-              className="rounded-md border border-[#E4E2DC] bg-white px-2 py-1.5 text-[11px] text-[#44403C]"
+              className="rounded-md border border-[#E5E7EC] bg-white px-2 py-1.5 text-[11px] text-[#3A3F4D]"
             >
               <option value="CUSTOM">CUSTOM</option>
               <option value="PERSON">PERSON</option>
@@ -575,16 +613,16 @@ export function InspectorPane({
             </select>
             <button
               type="submit"
-              className="rounded-md border border-[#E4E2DC] bg-white px-2.5 text-[#171717] hover:bg-[#F0EFEA]"
+              className="rounded-md border border-[#E5E7EC] bg-white px-2.5 text-[#0E1015] hover:bg-[#ECEEF2]"
               title="Add custom redaction rule"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
           </form>
 
-          <div className="divide-y divide-[#ECEAE3] rounded-lg border border-[#E4E2DC]">
+          <div className="divide-y divide-[#E8EAEF] rounded-lg border border-[#E5E7EC]">
             {vault.entities.length === 0 ? (
-              <p className="p-4 text-center text-xs text-[#78716C]">
+              <p className="p-4 text-center text-xs text-[#697083]">
                 No PII tokens yet. Select any text in the document or run Nano PII Discovery.
               </p>
             ) : (
@@ -592,29 +630,29 @@ export function InspectorPane({
                 <div
                   key={entity.id}
                   className={`flex items-center justify-between gap-2 px-3 py-2 ${
-                    entity.enabled ? 'bg-white' : 'bg-[#FAF9F6] opacity-55'
+                    entity.enabled ? 'bg-white' : 'bg-[#FAFBFC] opacity-55'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="rounded bg-[#171717] px-1.5 py-0.5 font-mono text-[10px] font-medium text-white">
+                      <span className="rounded bg-[#0E1015] px-1.5 py-0.5 font-mono text-[10px] font-medium text-white">
                         {entity.token}
                       </span>
-                      <span className="font-mono text-[9.5px] uppercase text-[#78716C]">
+                      <span className="font-mono text-[9.5px] uppercase text-[#697083]">
                         {entity.source} · ×{entity.occurrences}
                       </span>
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-[11.5px] text-[#292524]">
+                    <div className="mt-0.5 truncate font-mono text-[11.5px] text-[#1E2129]">
                       {entity.original}
                     </div>
                   </div>
                   <button
                     onClick={() => onToggleEntity(entity.id)}
-                    className="rounded p-1.5 text-[#57534E] hover:bg-[#F0EFEA] hover:text-[#171717]"
+                    className="rounded p-1.5 text-[#4A5061] hover:bg-[#ECEEF2] hover:text-[#0E1015]"
                     title={entity.enabled ? 'Unredact this term' : 'Redact this term'}
                   >
                     {entity.enabled ? (
-                      <EyeOff className="h-3.5 w-3.5 text-teal-700" />
+                      <EyeOff className="h-3.5 w-3.5 text-emerald-700" />
                     ) : (
                       <Eye className="h-3.5 w-3.5" />
                     )}
@@ -629,14 +667,14 @@ export function InspectorPane({
       {/* TAB 3: STREAMING HYBRID CHAT */}
       {tab === 'ask' && (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b border-[#ECEAE3] bg-[#FAF9F6] px-3 py-2">
-            <div className="flex rounded border border-[#E4E2DC] bg-white p-0.5 text-[11px]">
+          <div className="flex items-center justify-between gap-2 border-b border-[#E8EAEF] bg-[#FAFBFC] px-3 py-2">
+            <div className="flex rounded border border-[#E5E7EC] bg-white p-0.5 text-[11px]">
               <button
                 onClick={() => setChatMode('prefer_on_device')}
                 className={`rounded px-2 py-0.5 font-medium ${
                   chatMode === 'prefer_on_device' || airGapMode
-                    ? 'bg-[#171717] text-white'
-                    : 'text-[#57534E]'
+                    ? 'bg-[#0E1015] text-white'
+                    : 'text-[#4A5061]'
                 }`}
               >
                 On-Device First
@@ -646,8 +684,8 @@ export function InspectorPane({
                 disabled={airGapMode}
                 className={`rounded px-2 py-0.5 font-medium disabled:opacity-40 ${
                   chatMode === 'prefer_in_cloud' && !airGapMode
-                    ? 'bg-blue-700 text-white'
-                    : 'text-[#57534E]'
+                    ? 'bg-indigo-700 text-white'
+                    : 'text-[#4A5061]'
                 }`}
               >
                 Cloud Gemini
@@ -655,7 +693,7 @@ export function InspectorPane({
             </div>
             <button
               onClick={() => setRehydrate((r) => !r)}
-              className="font-mono text-[10.5px] text-[#57534E] underline underline-offset-2 hover:text-[#171717]"
+              className="font-mono text-[10.5px] text-[#4A5061] underline underline-offset-2 hover:text-[#0E1015]"
             >
               {rehydrate ? 'Re-Hydrated' : 'Raw Tokens'}
             </button>
@@ -664,7 +702,7 @@ export function InspectorPane({
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
             {vault.chatHistory.length === 0 ? (
               <div className="space-y-2 pt-4">
-                <p className="text-xs text-[#78716C]">
+                <p className="text-xs text-[#697083]">
                   Ask anything about this document. All PII is stripped before inference and
                   streamed responses are re-hydrated locally.
                 </p>
@@ -672,7 +710,7 @@ export function InspectorPane({
                   <button
                     key={idx}
                     onClick={() => onSendChat(q, airGapMode ? 'only_on_device' : chatMode)}
-                    className="block w-full rounded-md border border-[#E4E2DC] bg-[#FAF9F6] px-3 py-2 text-left text-xs text-[#292524] transition hover:border-[#171717] hover:bg-white"
+                    className="block w-full rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-3 py-2 text-left text-xs text-[#1E2129] transition hover:border-[#0E1015] hover:bg-white"
                   >
                     {q}
                   </button>
@@ -684,15 +722,15 @@ export function InspectorPane({
                   key={msg.id}
                   className={`rounded-lg p-3 text-xs leading-relaxed ${
                     msg.role === 'user'
-                      ? 'ml-6 bg-[#171717] text-white'
-                      : 'mr-4 border border-[#E4E2DC] bg-[#FAF9F6] text-[#1C1917]'
+                      ? 'ml-6 bg-[#0E1015] text-white'
+                      : 'mr-4 border border-[#E5E7EC] bg-[#FAFBFC] text-[#15181F]'
                   }`}
                 >
                   {msg.role === 'assistant' && msg.inferenceSource && (
-                    <div className="mb-1.5 flex items-center gap-2 border-b border-[#E4E2DC] pb-1 font-mono text-[10px] text-[#57534E]">
+                    <div className="mb-1.5 flex items-center gap-2 border-b border-[#E5E7EC] pb-1 font-mono text-[10px] text-[#4A5061]">
                       <span
                         className={`font-semibold ${
-                          msg.inferenceSource === 'ON_DEVICE' ? 'text-teal-800' : 'text-blue-800'
+                          msg.inferenceSource === 'ON_DEVICE' ? 'text-emerald-800' : 'text-indigo-800'
                         }`}
                       >
                         {msg.inferenceSource}
@@ -712,7 +750,7 @@ export function InspectorPane({
                       msg.content
                     )}
                     {msg.streaming && (
-                      <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-[#171717] align-middle" />
+                      <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-[#0E1015] align-middle" />
                     )}
                   </div>
                 </div>
@@ -722,7 +760,7 @@ export function InspectorPane({
 
           <form
             onSubmit={handleChatSubmit}
-            className="border-t border-[#E4E2DC] bg-[#FAF9F6] p-3"
+            className="border-t border-[#E5E7EC] bg-[#FAFBFC] p-3"
           >
             <div className="flex gap-1.5">
               <input
@@ -732,12 +770,12 @@ export function InspectorPane({
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ask about clauses, numbers, or draft a reply…"
-                className="min-w-0 flex-1 rounded-md border border-[#E4E2DC] bg-white px-3 py-2 text-xs text-[#171717] placeholder-[#A8A29E] focus:border-[#171717] focus:outline-none"
+                className="min-w-0 flex-1 rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs text-[#0E1015] placeholder-[#9CA2B0] focus:border-[#0E1015] focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={!chatInput.trim() || chatStreaming}
-                className="flex items-center justify-center rounded-md bg-[#171717] px-3 text-white transition hover:bg-[#2E2E2B] disabled:opacity-40"
+                className="flex items-center justify-center rounded-md bg-[#0E1015] px-3 text-white transition hover:bg-[#262A35] disabled:opacity-40"
               >
                 {chatStreaming ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -754,12 +792,12 @@ export function InspectorPane({
       {tab === 'telemetry' && (
         <div className="flex flex-1 flex-col overflow-y-auto p-4">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#57534E]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#4A5061]">
               Firebase AI Logic Routing Log
             </span>
             <button
               onClick={onExportCertificate}
-              className="inline-flex items-center gap-1 rounded border border-[#E4E2DC] bg-[#FAF9F6] px-2 py-1 text-[11px] font-medium text-[#171717] hover:bg-[#F0EFEA]"
+              className="inline-flex items-center gap-1 rounded border border-[#E5E7EC] bg-[#FAFBFC] px-2 py-1 text-[11px] font-medium text-[#0E1015] hover:bg-[#ECEEF2]"
             >
               <FileCode2 className="h-3 w-3" />
               SHA-256 Proof
@@ -767,7 +805,7 @@ export function InspectorPane({
           </div>
 
           {telemetry.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-[#D6D3CB] p-5 text-center text-xs text-[#78716C]">
+            <p className="rounded-lg border border-dashed border-[#D5D9E0] p-5 text-center text-xs text-[#697083]">
               No live inference calls recorded yet. Run Nano PII Discovery, Triage, Hybrid Audit,
               or Chat to record real routing provenance and payload hashes.
             </p>
@@ -776,32 +814,32 @@ export function InspectorPane({
               {telemetry.map((ev) => (
                 <div
                   key={ev.id}
-                  className="rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-3 font-mono text-[11px]"
+                  className="rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-3 font-mono text-[11px]"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#171717]">{ev.task}</span>
+                    <span className="font-semibold text-[#0E1015]">{ev.task}</span>
                     <span
                       className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                         ev.actualSource === 'ON_DEVICE'
-                          ? 'bg-teal-100 text-teal-900'
-                          : 'bg-blue-100 text-blue-900'
+                          ? 'bg-emerald-100 text-emerald-900'
+                          : 'bg-indigo-100 text-indigo-900'
                       }`}
                     >
                       {ev.actualSource}
                     </span>
                   </div>
-                  <div className="mt-1 text-[10.5px] text-[#57534E]">
+                  <div className="mt-1 text-[10.5px] text-[#4A5061]">
                     Mode: {ev.requestedMode} · {ev.modelLabel}
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-[#44403C]">
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-[#3A3F4D]">
                     <span>Latency: {ev.latencyMs}ms</span>
                     {ev.ttftMs !== undefined && <span>TTFT: {ev.ttftMs}ms</span>}
-                    <span className="text-teal-800">PII Local: {ev.piiBytesKeptLocal} B</span>
-                    <span className="text-blue-800">
+                    <span className="text-emerald-800">PII Local: {ev.piiBytesKeptLocal} B</span>
+                    <span className="text-indigo-800">
                       Wire: {ev.actualSource === 'IN_CLOUD' ? `${ev.cloudPayloadBytes} B` : '0 B'}
                     </span>
                   </div>
-                  <div className="mt-1 truncate text-[9.5px] text-[#78716C]">
+                  <div className="mt-1 truncate text-[9.5px] text-[#697083]">
                     Payload SHA-256: {ev.redactedSha256}
                   </div>
                 </div>

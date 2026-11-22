@@ -102,7 +102,7 @@ scanBtn.addEventListener('click', async () => {
 openAppBtn.addEventListener('click', () => {
   if (!lastCapturedText) return;
   const base = (appUrlInput.value || 'https://cloakvault-hybrid.web.app').replace(/\/$/, '');
-  const url = `${base}/?title=${encodeURIComponent(lastCapturedTitle)}&clip=${encodeURIComponent(
+  const url = `${base}/app?title=${encodeURIComponent(lastCapturedTitle)}&clip=${encodeURIComponent(
     lastCapturedText.slice(0, 6000)
   )}`;
   chrome.tabs.create({ url });

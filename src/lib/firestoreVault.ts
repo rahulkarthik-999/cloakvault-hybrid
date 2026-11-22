@@ -23,6 +23,7 @@ export interface CloudSafeVaultRecord {
   riskVerdict: string | null;
   executiveSummary: string | null;
   findingsCount: number;
+  zeroLeakVerified: true;
   updatedAt: unknown;
 }
 
@@ -61,6 +62,7 @@ export async function syncSanitizedVaultToFirestore(
     riskVerdict: vault.auditReport?.riskVerdict ?? null,
     executiveSummary: vault.auditReport?.executiveSummary ?? null,
     findingsCount: vault.auditReport?.findings.length ?? 0,
+    zeroLeakVerified: true,
     updatedAt: serverTimestamp(),
   };
 

@@ -33,9 +33,9 @@ export function VaultSidebar({
   };
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b border-[#E4E2DC] bg-[#FAF9F6] lg:w-[248px] lg:border-r lg:border-b-0">
+    <aside className="flex w-full shrink-0 flex-col border-b border-[#E5E7EC] bg-[#FAFBFC] lg:w-[248px] lg:border-r lg:border-b-0">
       {/* Import Controls */}
-      <div className="border-b border-[#E4E2DC] p-3">
+      <div className="border-b border-[#E5E7EC] p-3">
         <div className="flex gap-1.5">
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -52,8 +52,8 @@ export function VaultSidebar({
             }}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
               dragging
-                ? 'border-teal-600 bg-teal-50 text-teal-900'
-                : 'border-[#171717] bg-[#171717] text-white hover:bg-[#2E2E2B]'
+                ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+                : 'border-[#0E1015] bg-[#0E1015] text-white hover:bg-[#262A35]'
             }`}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -62,7 +62,7 @@ export function VaultSidebar({
 
           <button
             onClick={onCreateBlankVault}
-            className="flex items-center justify-center rounded-md border border-[#E4E2DC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#171717] transition hover:bg-[#F0EFEA]"
+            className="flex items-center justify-center rounded-md border border-[#E5E7EC] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0E1015] transition hover:bg-[#ECEEF2]"
             title="New blank document"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -80,14 +80,14 @@ export function VaultSidebar({
             e.target.value = '';
           }}
         />
-        <p className="mt-1.5 text-center text-[10.5px] text-[#78716C]">
+        <p className="mt-1.5 text-center text-[10.5px] text-[#697083]">
           PDF, DOCX, TXT, CSV · Parsed locally
         </p>
       </div>
 
       {/* Document List */}
       <div className="flex-1 overflow-y-auto p-2.5">
-        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[#697083]">
           Local Workspace ({vaults.length})
         </div>
 
@@ -101,18 +101,18 @@ export function VaultSidebar({
                 onClick={() => onSelectVault(v.id)}
                 className={`group relative flex cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 transition ${
                   active
-                    ? 'bg-white text-[#171717] shadow-xs ring-1 ring-[#E4E2DC]'
-                    : 'text-[#44403C] hover:bg-[#F0EFEA]'
+                    ? 'bg-white text-[#0E1015] shadow-xs ring-1 ring-[#E5E7EC]'
+                    : 'text-[#3A3F4D] hover:bg-[#ECEEF2]'
                 }`}
               >
                 <FileText
                   className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                    active ? 'text-[#171717]' : 'text-[#A8A29E]'
+                    active ? 'text-[#0E1015]' : 'text-[#9CA2B0]'
                   }`}
                 />
                 <div className="min-w-0 flex-1 pr-4">
                   <div className="truncate text-[12.5px] font-medium leading-snug">{v.title}</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-[#78716C]">
+                  <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-[#697083]">
                     <span>{shielded} shielded</span>
                     {v.auditReport && (
                       <>
@@ -123,7 +123,7 @@ export function VaultSidebar({
                               ? 'font-semibold text-red-700'
                               : v.auditReport.riskScore >= 45
                               ? 'font-semibold text-amber-700'
-                              : 'font-semibold text-teal-700'
+                              : 'font-semibold text-emerald-700'
                           }
                         >
                           Risk {v.auditReport.riskScore}
@@ -138,7 +138,7 @@ export function VaultSidebar({
                       e.stopPropagation();
                       onDeleteVault(v.id);
                     }}
-                    className="absolute right-1.5 top-2 rounded p-1 text-[#A8A29E] opacity-0 transition hover:bg-red-50 hover:text-red-700 group-hover:opacity-100"
+                    className="absolute right-1.5 top-2 rounded p-1 text-[#9CA2B0] opacity-0 transition hover:bg-red-50 hover:text-red-700 group-hover:opacity-100"
                     title="Delete from local IndexedDB"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -150,8 +150,8 @@ export function VaultSidebar({
         </div>
 
         {/* Sample Case Files */}
-        <div className="mt-5 border-t border-[#E4E2DC] pt-3">
-          <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+        <div className="mt-5 border-t border-[#E5E7EC] pt-3">
+          <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[#697083]">
             Sample Case Files
           </div>
           <div className="space-y-1">
@@ -159,10 +159,10 @@ export function VaultSidebar({
               <button
                 key={s.id}
                 onClick={() => onLoadSample(s.id)}
-                className="flex w-full flex-col rounded-md px-2.5 py-1.5 text-left transition hover:bg-[#F0EFEA]"
+                className="flex w-full flex-col rounded-md px-2.5 py-1.5 text-left transition hover:bg-[#ECEEF2]"
               >
-                <span className="text-[12px] font-medium text-[#292524]">{s.badge}</span>
-                <span className="truncate text-[10.5px] text-[#78716C]">{s.subtitle}</span>
+                <span className="text-[12px] font-medium text-[#1E2129]">{s.badge}</span>
+                <span className="truncate text-[10.5px] text-[#697083]">{s.subtitle}</span>
               </button>
             ))}
           </div>

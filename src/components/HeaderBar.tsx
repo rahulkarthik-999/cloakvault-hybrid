@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Shield,
+  Cpu,
   Download,
   ChevronDown,
   Wifi,
@@ -11,6 +11,7 @@ import {
   FileCode2,
   FileCheck2,
 } from 'lucide-react';
+import { Wordmark } from './BrandMark';
 import type { RemotePolicyConfig, SystemCapabilities, VaultDocument } from '../types/vault';
 
 interface HeaderBarProps {
@@ -55,19 +56,18 @@ export function HeaderBar({
   }, []);
 
   return (
-    <header className="flex h-13 shrink-0 items-center justify-between gap-4 border-b border-[#E4E2DC] bg-[#FFFFFF] px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#E5E7EC] bg-white/90 px-4 backdrop-blur">
       {/* Left: Wordmark + Editable Document Title */}
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#171717] text-white">
-            <Shield className="h-3.5 w-3.5" />
-          </div>
-          <span className="font-serif text-[17px] font-semibold tracking-tight text-[#171717]">
-            CloakVault
-          </span>
-        </div>
+        <a
+          href="/"
+          className="flex shrink-0 items-center rounded-md transition hover:opacity-80"
+          title="CloakVault home"
+        >
+          <Wordmark size={26} />
+        </a>
 
-        <span className="text-[#D4D1C7]">/</span>
+        <span className="text-[#CDD2DB]">/</span>
 
         <input
           id="vault-document-title"
@@ -76,11 +76,11 @@ export function HeaderBar({
           value={activeVault.title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           aria-label="Document title"
-          className="min-w-0 max-w-[340px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#171717] hover:bg-[#F6F5F1] focus:bg-[#F6F5F1] focus:outline-none"
+          className="min-w-0 max-w-[340px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none"
         />
 
-        <span className="hidden rounded border border-[#E4E2DC] bg-[#F6F5F1] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#57534E] xl:inline-block">
-          Local IndexedDB
+        <span className="hidden rounded border border-[#E5E7EC] bg-[#F3F4F7] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#4A5061] xl:inline-block">
+          Stored on this device
         </span>
       </div>
 
@@ -88,9 +88,10 @@ export function HeaderBar({
       <div className="flex shrink-0 items-center gap-2">
         {/* On-Device Gemini Nano Control */}
         {capabilities.chromeNanoStatus === 'available' ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-[11.5px] font-medium text-teal-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
-            <span>On-Device Nano Ready</span>
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11.5px] font-medium text-emerald-800">
+            <Cpu className="h-3.5 w-3.5" />
+            <span>Gemini Nano · on-device</span>
+            <span className="h-1.5 w-1.5 animate-pulse-ring rounded-full bg-emerald-500" />
           </div>
         ) : capabilities.chromeNanoStatus === 'downloading' ? (
           <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11.5px] font-medium text-amber-800">
@@ -102,39 +103,40 @@ export function HeaderBar({
         ) : capabilities.chromeNanoStatus === 'downloadable' ? (
           <button
             onClick={onDownloadNano}
-            className="flex items-center gap-1.5 rounded-md border border-[#171717] bg-[#171717] px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-[#2E2E2B]"
+            className="flex items-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-[#262A35]"
           >
             <Download className="h-3 w-3" />
             <span>Download Gemini Nano</span>
           </button>
         ) : (
           <span
-            className="hidden rounded-md border border-[#E4E2DC] bg-[#F6F5F1] px-2.5 py-1 text-[11px] text-[#78716C] md:inline-block"
-            title="Chrome Built-in AI (Gemini Nano) requires Chrome desktop with Prompt API support"
+            className="hidden items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-[#F3F4F7] px-3 py-1 text-[11px] text-[#697083] md:flex"
+            title="Gemini Nano isn't available in this browser, so Firebase AI Logic routes prompts to Cloud Gemini. Local redaction still runs fully on-device."
           >
-            Nano: {capabilities.chromeNanoStatus}
+            <Cpu className="h-3.5 w-3.5 opacity-60" />
+            Nano unavailable · cloud fallback
           </span>
         )}
 
         {/* Network / Air-Gap Segmented Toggle */}
         <button
           onClick={onToggleAirGap}
-          className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-medium transition ${
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-medium transition ${
             isOfflineEffective
               ? 'border-amber-300 bg-amber-50 text-amber-900'
-              : 'border-[#E4E2DC] bg-white text-[#44403C] hover:bg-[#F6F5F1]'
+              : 'border-[#E5E7EC] bg-white text-[#3A3F4D] hover:bg-[#F3F4F7]'
           }`}
           title="Simulate air-gapped / offline execution to test automatic on-device hybrid fallback"
         >
           {isOfflineEffective ? (
             <>
               <WifiOff className="h-3.5 w-3.5 text-amber-700" />
-              <span>Air-Gap</span>
+              <span>Air-gap · device only</span>
             </>
           ) : (
             <>
-              <Wifi className="h-3.5 w-3.5 text-[#57534E]" />
-              <span>Hybrid Online</span>
+              <Wifi className="h-3.5 w-3.5 text-[#4A5061]" />
+              <span>Hybrid routing</span>
             </>
           )}
         </button>
@@ -143,26 +145,26 @@ export function HeaderBar({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setExportOpen((o) => !o)}
-            className="flex items-center gap-1 rounded-md border border-[#E4E2DC] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#171717] transition hover:bg-[#F6F5F1]"
+            className="flex items-center gap-1 rounded-full border border-[#E5E7EC] bg-white px-3 py-1 text-[11.5px] font-medium text-[#0E1015] transition hover:bg-[#F3F4F7]"
           >
-            <FileDown className="h-3.5 w-3.5 text-[#57534E]" />
+            <FileDown className="h-3.5 w-3.5 text-[#4A5061]" />
             <span>Export</span>
-            <ChevronDown className="h-3 w-3 text-[#78716C]" />
+            <ChevronDown className="h-3 w-3 text-[#697083]" />
           </button>
 
           {exportOpen && (
-            <div className="absolute right-0 z-40 mt-1.5 w-60 rounded-lg border border-[#E4E2DC] bg-white p-1 shadow-lg">
+            <div className="absolute right-0 z-40 mt-1.5 w-60 rounded-lg border border-[#E5E7EC] bg-white p-1 shadow-lg">
               <button
                 onClick={() => {
                   onExportRedacted();
                   setExportOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#171717] hover:bg-[#F6F5F1]"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
               >
-                <FileCheck2 className="h-3.5 w-3.5 text-teal-700" />
+                <FileCheck2 className="h-3.5 w-3.5 text-emerald-700" />
                 <div>
                   <div className="font-medium">Redacted Document (.txt)</div>
-                  <div className="text-[10.5px] text-[#78716C]">Safe to email externally</div>
+                  <div className="text-[10.5px] text-[#697083]">Safe to email externally</div>
                 </div>
               </button>
               <button
@@ -171,12 +173,12 @@ export function HeaderBar({
                   setExportOpen(false);
                 }}
                 disabled={!activeVault.auditReport}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#171717] hover:bg-[#F6F5F1] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <FileDown className="h-3.5 w-3.5 text-blue-700" />
+                <FileDown className="h-3.5 w-3.5 text-indigo-700" />
                 <div>
                   <div className="font-medium">Redlined Audit Report (.md)</div>
-                  <div className="text-[10.5px] text-[#78716C]">Findings &amp; counter-clauses</div>
+                  <div className="text-[10.5px] text-[#697083]">Findings &amp; counter-clauses</div>
                 </div>
               </button>
               <button
@@ -184,12 +186,12 @@ export function HeaderBar({
                   onExportCertificate();
                   setExportOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#171717] hover:bg-[#F6F5F1]"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
               >
-                <FileCode2 className="h-3.5 w-3.5 text-[#57534E]" />
+                <FileCode2 className="h-3.5 w-3.5 text-[#4A5061]" />
                 <div>
                   <div className="font-medium">Zero-Leak SHA-256 Proof (.json)</div>
-                  <div className="text-[10.5px] text-[#78716C]">Cryptographic compliance log</div>
+                  <div className="text-[10.5px] text-[#697083]">Cryptographic compliance log</div>
                 </div>
               </button>
             </div>
@@ -199,15 +201,15 @@ export function HeaderBar({
         {/* Firebase Stack Button */}
         <button
           onClick={onOpenFirebaseModal}
-          className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-medium transition ${
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-medium transition ${
             capabilities.firebaseConfigured
-              ? 'border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100/70'
-              : 'border-[#E4E2DC] bg-[#F6F5F1] text-[#171717] hover:bg-[#ECEAE3]'
+              ? 'border-indigo-200 bg-indigo-50 text-indigo-900 hover:bg-indigo-100/70'
+              : 'border-[#E5E7EC] bg-[#F3F4F7] text-[#0E1015] hover:bg-[#E8EAEF]'
           }`}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${
-              capabilities.firebaseConfigured ? 'bg-blue-600' : 'bg-stone-400'
+              capabilities.firebaseConfigured ? 'bg-indigo-600' : 'bg-slate-400'
             }`}
           />
           <span>

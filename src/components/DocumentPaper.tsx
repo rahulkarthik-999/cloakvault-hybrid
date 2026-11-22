@@ -127,7 +127,7 @@ export function DocumentPaper({
         {text.slice(0, idx)}
         <span
           ref={highlightMarkRef}
-          className="rounded bg-amber-200/90 px-0.5 text-[#171717] ring-2 ring-amber-400"
+          className="rounded bg-amber-200/90 px-0.5 text-[#0E1015] ring-2 ring-amber-400"
         >
           {text.slice(idx, idx + matchLen)}
         </span>
@@ -137,10 +137,10 @@ export function DocumentPaper({
   };
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-[#F6F5F1]">
+    <section className="flex min-w-0 flex-1 flex-col bg-[#F3F4F7]">
       {/* Document Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E4E2DC] bg-[#FAF9F6] px-4 py-2">
-        <div className="flex items-center gap-0.5 rounded-md border border-[#E4E2DC] bg-white p-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EC] bg-[#FAFBFC] px-4 py-2">
+        <div className="flex items-center gap-0.5 rounded-md border border-[#E5E7EC] bg-white p-0.5">
           {(
             [
               ['redacted', 'Redacted View'],
@@ -157,8 +157,8 @@ export function DocumentPaper({
               }}
               className={`rounded px-2.5 py-1 text-[11.5px] font-medium transition ${
                 viewMode === id
-                  ? 'bg-[#171717] text-white'
-                  : 'text-[#57534E] hover:bg-[#F6F5F1] hover:text-[#171717]'
+                  ? 'bg-[#0E1015] text-white'
+                  : 'text-[#4A5061] hover:bg-[#F3F4F7] hover:text-[#0E1015]'
               }`}
             >
               {label}
@@ -167,9 +167,9 @@ export function DocumentPaper({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <div className="hidden items-center gap-1.5 font-mono text-[11px] text-teal-800 sm:flex">
+          <div className="hidden items-center gap-1.5 font-mono text-[11px] text-emerald-800 sm:flex">
             {zeroLeakVerified ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-teal-700" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
             ) : (
               <AlertTriangle className="h-3.5 w-3.5 text-red-700" />
             )}
@@ -179,13 +179,13 @@ export function DocumentPaper({
           </div>
 
           {lastSyncMessage && (
-            <span className="font-mono text-[10.5px] text-teal-800">{lastSyncMessage}</span>
+            <span className="font-mono text-[10.5px] text-emerald-800">{lastSyncMessage}</span>
           )}
 
           <button
             onClick={onSyncFirestore}
             disabled={!firestoreConfigured || syncBusy}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#E4E2DC] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#171717] transition hover:bg-[#F0EFEA] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EC] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#0E1015] transition hover:bg-[#ECEEF2] disabled:cursor-not-allowed disabled:opacity-45"
             title={
               firestoreConfigured
                 ? 'Sync zero-PII redacted copy & audit report to Cloud Firestore'
@@ -195,7 +195,7 @@ export function DocumentPaper({
             {syncBusy ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <CloudUpload className="h-3 w-3 text-blue-700" />
+              <CloudUpload className="h-3 w-3 text-indigo-700" />
             )}
             <span>Sync Redacted</span>
           </button>
@@ -207,15 +207,15 @@ export function DocumentPaper({
         <div
           ref={paperRef}
           onMouseUp={handleMouseUp}
-          className="paper-sheet relative mx-auto max-w-[820px] rounded-xl border border-[#E4E2DC] bg-white px-7 py-8 sm:px-11 sm:py-10"
+          className="paper-sheet relative mx-auto max-w-[820px] rounded-xl border border-[#E5E7EC] bg-white px-7 py-8 sm:px-11 sm:py-10"
         >
           {/* Floating Select-to-Redact Popover (Acrobat-style real workflow) */}
           {selectionPopup && (
             <div
               style={{ left: selectionPopup.x, top: selectionPopup.y }}
-              className="absolute z-30 flex items-center gap-1 rounded-lg border border-[#171717] bg-[#171717] px-2 py-1.5 text-white shadow-xl"
+              className="absolute z-30 flex items-center gap-1 rounded-lg border border-[#0E1015] bg-[#0E1015] px-2 py-1.5 text-white shadow-xl"
             >
-              <Scissors className="mr-1 h-3 w-3 text-teal-400" />
+              <Scissors className="mr-1 h-3 w-3 text-emerald-400" />
               <span className="mr-1 text-[10.5px] text-zinc-300">Redact:</span>
               {SELECTION_TYPES.map((item) => (
                 <button
@@ -224,7 +224,7 @@ export function DocumentPaper({
                     e.preventDefault();
                     applySelectionRedact(item.type);
                   }}
-                  className="rounded bg-white/10 px-1.5 py-0.5 text-[10.5px] font-medium text-white transition hover:bg-teal-500 hover:text-zinc-950"
+                  className="rounded bg-white/10 px-1.5 py-0.5 text-[10.5px] font-medium text-white transition hover:bg-emerald-500 hover:text-zinc-950"
                 >
                   {item.label}
                 </button>
@@ -248,17 +248,17 @@ export function DocumentPaper({
           )}
 
           {/* Paper Header Metadata */}
-          <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#ECEAE3] pb-4">
+          <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#E8EAEF] pb-4">
             <div>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[#78716C]">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[#697083]">
                 {vault.category} document · {vault.rawText.length.toLocaleString()} chars
               </span>
-              <h1 className="mt-1 font-serif text-2xl font-medium tracking-tight text-[#171717]">
+              <h1 className="mt-1 font-serif text-2xl font-medium tracking-tight text-[#0E1015]">
                 {vault.title}
               </h1>
             </div>
             {viewMode === 'redacted' && (
-              <span className="text-[11px] text-[#78716C]">
+              <span className="text-[11px] text-[#697083]">
                 Tip: Highlight any text with your mouse to redact instantly
               </span>
             )}
@@ -266,10 +266,10 @@ export function DocumentPaper({
 
           {/* Local Triage Summary Callout if generated */}
           {vault.localTriageSummary && viewMode === 'redacted' && (
-            <div className="mb-6 rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-3.5">
+            <div className="mb-6 rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-3.5">
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#44403C]">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[#3A3F4D]">
                     Triage Brief · {vault.localTriageSummary.documentType}
                   </span>
                   <span
@@ -278,17 +278,17 @@ export function DocumentPaper({
                         ? 'bg-red-100 text-red-800'
                         : vault.localTriageSummary.urgency === 'MEDIUM'
                         ? 'bg-amber-100 text-amber-800'
-                        : 'bg-teal-100 text-teal-800'
+                        : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
                     {vault.localTriageSummary.urgency}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] text-[#78716C]">
+                <span className="font-mono text-[10px] text-[#697083]">
                   {vault.localTriageSummary.inferenceSource} · {vault.localTriageSummary.latencyMs}ms
                 </span>
               </div>
-              <p className="text-[12.5px] leading-relaxed text-[#292524]">
+              <p className="text-[12.5px] leading-relaxed text-[#1E2129]">
                 {vault.localTriageSummary.summary}
               </p>
             </div>
@@ -296,9 +296,9 @@ export function DocumentPaper({
 
           {/* MODE 1: Interactive Redacted Paper */}
           {viewMode === 'redacted' && (
-            <div className="whitespace-pre-wrap font-serif text-[15.5px] leading-[1.78] text-[#1C1917]">
+            <div className="whitespace-pre-wrap font-serif text-[15.5px] leading-[1.78] text-[#15181F]">
               {vault.rawText.trim().length === 0 ? (
-                <p className="font-sans text-sm text-[#78716C]">
+                <p className="font-sans text-sm text-[#697083]">
                   Document is empty. Switch to &ldquo;Edit Source&rdquo; to paste text, or import a
                   PDF/DOCX file from the left rail.
                 </p>
@@ -310,9 +310,9 @@ export function DocumentPaper({
                       type="button"
                       onClick={() => onToggleEntity(seg.entity!.id)}
                       title={`Local-only value: "${seg.text}" (${seg.entity.source}) — Click to unredact`}
-                      className="mx-0.5 inline-flex items-center gap-1 rounded bg-[#171717] px-1.5 py-0.5 align-baseline font-mono text-[11px] font-medium text-[#F6F5F1] transition hover:bg-teal-800"
+                      className="mx-0.5 inline-flex items-center gap-1 rounded bg-[#0E1015] px-1.5 py-0.5 align-baseline font-mono text-[11px] font-medium text-[#F3F4F7] transition hover:bg-emerald-800"
                     >
-                      <Lock className="h-2.5 w-2.5 text-teal-400" />
+                      <Lock className="h-2.5 w-2.5 text-emerald-400" />
                       {seg.entity.token}
                     </button>
                   ) : (
@@ -326,10 +326,10 @@ export function DocumentPaper({
           {/* MODE 2: Exact Cloud Wire Payload + Web Crypto SHA-256 Proof */}
           {viewMode === 'wire' && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-3.5 text-xs text-teal-950">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950">
                 <div className="flex items-center justify-between gap-2 font-medium">
                   <span className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-teal-700" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                     Zero-Leak Outbound Wire Proof — 0 bytes of active PII present
                   </span>
                   <span className="font-mono text-[11px]">
@@ -337,20 +337,20 @@ export function DocumentPaper({
                   </span>
                 </div>
                 {hashes && (
-                  <div className="mt-2.5 grid grid-cols-1 gap-1.5 border-t border-teal-200/80 pt-2 font-mono text-[10.5px] text-teal-900/80">
+                  <div className="mt-2.5 grid grid-cols-1 gap-1.5 border-t border-emerald-200/80 pt-2 font-mono text-[10.5px] text-emerald-900/80">
                     <div className="truncate">
-                      <span className="font-semibold text-teal-950">Local Original SHA-256: </span>
+                      <span className="font-semibold text-emerald-950">Local Original SHA-256: </span>
                       {hashes.orig}
                     </div>
                     <div className="truncate">
-                      <span className="font-semibold text-teal-950">Outbound Cloud SHA-256: </span>
+                      <span className="font-semibold text-emerald-950">Outbound Cloud SHA-256: </span>
                       {hashes.wire}
                     </div>
                   </div>
                 )}
               </div>
 
-              <pre className="whitespace-pre-wrap rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-4 font-mono text-[12px] leading-relaxed text-[#292524]">
+              <pre className="whitespace-pre-wrap rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-4 font-mono text-[12px] leading-relaxed text-[#1E2129]">
                 {renderWithOptionalQuoteHighlight(redactedText)}
               </pre>
             </div>
@@ -363,7 +363,7 @@ export function DocumentPaper({
                 Viewing unredacted local document in browser memory. Select any phrase to add it to
                 the local PII vault.
               </div>
-              <div className="whitespace-pre-wrap font-serif text-[15.5px] leading-[1.78] text-[#1C1917]">
+              <div className="whitespace-pre-wrap font-serif text-[15.5px] leading-[1.78] text-[#15181F]">
                 {renderWithOptionalQuoteHighlight(vault.rawText)}
               </div>
             </div>
@@ -378,7 +378,7 @@ export function DocumentPaper({
               onChange={(e) => onUpdateRawText(e.target.value)}
               rows={22}
               placeholder="Paste any contract, NDA, bank statement, invoice, or medical bill here…"
-              className="w-full rounded-lg border border-[#E4E2DC] bg-[#FAF9F6] p-4 font-mono text-[12.5px] leading-relaxed text-[#171717] placeholder-[#A8A29E] focus:border-[#171717] focus:bg-white focus:outline-none"
+              className="w-full rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-4 font-mono text-[12.5px] leading-relaxed text-[#0E1015] placeholder-[#9CA2B0] focus:border-[#0E1015] focus:bg-white focus:outline-none"
             />
           )}
         </div>
