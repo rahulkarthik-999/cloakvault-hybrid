@@ -64,4 +64,16 @@ describe('CloakVault Local PII Redaction & Re-Hydration Engine', () => {
       'Risk found for Quantum Harbor Ventures and Rohan Mehta.'
     );
   });
+
+  it('extracts clean single-line addresses without bleeding across newlines', () => {
+    const ledger = SAMPLE_DOCUMENTS[1].rawText;
+    const ledgerEntities = extractDeterministicPii(ledger);
+    const ledgerAddr = ledgerEntities.find((e) => e.type === 'ADDRESS');
+    expect(ledgerAddr?.original).toBe('1290 Market Street, Floor 6, San Francisco, CA 94103');
+
+    const medical = SAMPLE_DOCUMENTS[2].rawText;
+    const medicalEntities = extractDeterministicPii(medical);
+    const medicalAddr = medicalEntities.find((e) => e.type === 'ADDRESS');
+    expect(medicalAddr?.original).toBe('880 Harbor View Blvd, Seattle, WA 98104');
+  });
 });

@@ -34,10 +34,10 @@ const REGEX_RULES: PatternRule[] = [
   { type: 'PHONE', regex: /(?:\+\d{1,3}[-\s]\d{5}[-\s]\d{5}\b|(?:\+\d{1,3}[-\s]?)?(?:\(\d{3}\)|\d{3})[-\s]\d{3}[-\s]\d{4}\b)/g },
   // Internal IPs (RFC1918: 10.x.x.x, 172.16-31.x.x, 192.168.x.x)
   { type: 'SECRET', regex: /\b(?:10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}\b/g },
-  // Street addresses (heuristic for US/India addresses)
+  // Street addresses (heuristic for US/India addresses; single-line safe)
   {
     type: 'ADDRESS',
-    regex: /\b\d{2,5}\s+[A-Z][A-Za-z0-9.\s]{3,35}(?:Street|St\.?|Road|Rd\.?|Blvd\.?|Terrace|Ave\.?|Avenue|Lane|Ln\.?|Drive|Dr\.?)(?:,\s*(?:Suite|Floor|Apt|Unit)?\s*[A-Za-z0-9\s]+){0,3}(?:,\s*[A-Z]{2}\s*\d{5}|\s+\d{6})?/g,
+    regex: /\b\d{2,5}[ \t]+[A-Z][A-Za-z0-9. ]{3,35}(?:Street|St\.?|Road|Rd\.?|Blvd\.?|Terrace|Ave\.?|Avenue|Lane|Ln\.?|Drive|Dr\.?)(?:,[ \t]*(?:Suite|Floor|Apt|Unit)?[ \t]*(?![A-Z]{2}[ \t]+\d{5}\b)[A-Za-z0-9 ]+){0,2}(?:,[ \t]*[A-Z]{2}[ \t]*\d{5}|[ \t]+\d{6})?/g,
   },
 ];
 
@@ -46,7 +46,7 @@ const LABELED_ENTITY_RULES: Array<{ type: PiiType; regex: RegExp; group: number 
   { type: 'PERSON', regex: /\b(?:Principal|Authorized Signatory|Patient Name|Attending Physician|VP of Operations)\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)\b/g, group: 1 },
   { type: 'PERSON', regex: /\b(?:Dr\.\s+[A-Z](?:\.|[a-z]+)\s+[A-Z][a-z]+)\b/g, group: 0 },
   { type: 'PERSON', regex: /\bWire Transfer to\s+([A-Z][a-z]+\s+[A-Z][a-z]+)\b/g, group: 1 },
-  { type: 'ORG', regex: /\b([A-Z][A-Za-z0-9&.\s]{2,40}\s+(?:LLC|Inc\.?|Ltd\.?|Pvt\.\s*Ltd\.?|Consulting|Medical Center|PPO|SYNDICATE LTD))\b/g, group: 1 },
+  { type: 'ORG', regex: /\b([A-Z][A-Za-z0-9&. ]{2,40}[ \t]+(?:LLC|Inc\.?|Ltd\.?|Pvt\.[ \t]*Ltd\.?|Consulting|Medical Center|PPO|SYNDICATE LTD))\b/g, group: 1 },
 ];
 
 function escapeRegExp(str: string): string {
