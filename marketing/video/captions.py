@@ -3,7 +3,7 @@ import re
 
 
 def chunks(vo_text, seconds, width=78):
-    text = vo_text.replace("P-I-I", "PII").replace(" dot web dot app", ".web.app")
+    text = vo_text.replace("P-I-I", "PII").replace(" dot web dot app", ".web.app").replace(" dot buzz", ".buzz")
     parts = []
     for sent in re.split(r"(?<=[.?!])\s+", text):
         while len(sent) > width:

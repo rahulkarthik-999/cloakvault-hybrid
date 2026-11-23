@@ -350,7 +350,7 @@ async def main():
         async def s14():
             await page.evaluate("() => window.__cvPanel(null)")
             await page.evaluate("() => window.__cvCursor(false)")
-            await card(CARD_STACK)
+            await card(cards.CARD_ARCH)
 
         async def s15():
             await card(CARD_OUTRO, sfx="chime")

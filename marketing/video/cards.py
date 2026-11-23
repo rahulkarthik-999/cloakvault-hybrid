@@ -148,3 +148,90 @@ CARD_OUTRO = f"""{KEYFRAMES}<div style="{BG}"></div><div style="{GRID}"></div>
   <div class="cv-up" style="{MONO};font-size:28px;color:#67E8F9;margin-top:44px;animation-delay:.4s">cloakvault.buzz</div>
   <div class="cv-up" style="{SANS};font-size:20px;color:rgba(255,255,255,.45);margin-top:16px;animation-delay:.55s">#BuildHybridAI 2026 · Firebase AI Logic · Open source (Apache-2.0)</div>
 </div>"""
+
+
+# ───────────────────────── Architecture diagram (scene 14, "Under the hood") ─────────────────────────
+# Node entrances are timed to the narration: "Firebase AI Logic … App Check … Remote Config …
+# Firestore … Authentication … Hosting" (≈11 s).
+
+def _node(x, y, w, h, title, sub, color, delay, fill="#0B1222"):
+    return f"""<g style="opacity:0;animation:cvFade .55s {delay:.2f}s both">
+  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="16" fill="{fill}" stroke="{color}" stroke-width="2"/>
+  <rect x="{x - 6}" y="{y - 6}" width="{w + 12}" height="{h + 12}" rx="20" fill="none" stroke="{color}" stroke-width="3"
+        style="opacity:0;animation:cvFlash 1.4s {delay + .1:.2f}s both"/>
+  <text x="{x + w / 2}" y="{y + h / 2 - (6 if sub else -7)}" text-anchor="middle" font-family="Geist" font-weight="600" font-size="21" fill="#F1F5F9">{title}</text>
+  {f'<text x="{x + w / 2}" y="{y + h / 2 + 20}" text-anchor="middle" font-family="Geist Mono" font-size="14" fill="{color}">{sub}</text>' if sub else ''}
+</g>"""
+
+
+def _edge(d, color, delay, label=None, lx=0, ly=0, dash="9 11"):
+    w = len(label or "") * 8.6 + 22
+    lab = (f'<rect x="{lx - w / 2}" y="{ly - 17}" width="{w}" height="26" rx="13" fill="#070B16" stroke="{color}" stroke-opacity=".35"/>'
+           f'<text x="{lx}" y="{ly + 1}" text-anchor="middle" font-family="Geist Mono" font-size="14" fill="{color}">{label}</text>'
+           if label else "")
+    return f"""<g style="opacity:0;animation:cvFade .5s {delay:.2f}s both">
+  <path d="{d}" fill="none" stroke="{color}" stroke-width="3" stroke-dasharray="{dash}" style="animation:cvDash 1.1s linear infinite"/>{lab}
+</g>"""
+
+
+def _packet(d, text, color, delay):
+    return f"""<g style="offset-path:path('{d}');opacity:0;animation:cvTravel 2.2s {delay:.2f}s ease-in-out infinite">
+  <rect x="-58" y="-16" width="116" height="32" rx="9" fill="#020617" stroke="{color}" stroke-width="1.5"/>
+  <text x="0" y="6" text-anchor="middle" font-family="Geist Mono" font-size="14" fill="{color}">{text}</text></g>"""
+
+
+G, B, A, R = "#34D399", "#60A5FA", "#FBBF24", "#F87171"
+ROUTE_TO_CLOUD = "M770 330 C 860 330, 880 250, 975 250"
+ARCH_SVG = f"""<svg width="1500" height="700" viewBox="0 0 1500 700">
+  <!-- device + cloud zones -->
+  <g style="opacity:0;animation:cvFade .6s .15s both">
+    <rect x="20" y="40" width="800" height="620" rx="28" fill="rgba(16,185,129,.05)" stroke="rgba(52,211,153,.45)" stroke-dasharray="6 8"/>
+    <text x="48" y="80" font-family="Geist Mono" font-size="16" letter-spacing="3" fill="{G}">YOUR DEVICE · CHROME</text>
+  </g>
+  <g style="opacity:0;animation:cvFade .6s 3.2s both">
+    <rect x="940" y="40" width="540" height="620" rx="28" fill="rgba(59,130,246,.05)" stroke="rgba(96,165,250,.45)" stroke-dasharray="6 8"/>
+    <text x="968" y="80" font-family="Geist Mono" font-size="16" letter-spacing="3" fill="{B}">GOOGLE CLOUD · FIREBASE</text>
+  </g>
+  <!-- zero-leak boundary -->
+  <g style="opacity:0;animation:cvFade .6s 4.6s both">
+    <line x1="880" y1="60" x2="880" y2="590" stroke="{R}" stroke-width="2" stroke-dasharray="4 8"/>
+    <rect x="790" y="596" width="180" height="34" rx="17" fill="#1F0A0A" stroke="{R}"/>
+    <text x="880" y="618" text-anchor="middle" font-family="Geist Mono" font-size="14" fill="#FCA5A5">0 B raw PII crosses</text>
+  </g>
+
+  <!-- device side -->
+  {_node(60, 110, 230, 74, 'Document', 'PDF · DOCX · TXT', '#94A3B8', 0.35)}
+  {_node(60, 230, 230, 84, 'PII Shield', 'detectors + Nano NER', G, 0.7)}
+  {_node(60, 360, 230, 84, 'Token vault', 'IndexedDB · keymap', G, 1.0)}
+  {_node(320, 470, 230, 84, 'Gemini Nano', 'ON_DEVICE', G, 2.0, fill='#052E1F')}
+  {_edge('M175 184 L175 230', '#94A3B8', 0.6)}
+  {_edge('M175 314 L175 360', G, 0.9)}
+  {_edge('M290 272 C 420 272, 470 300, 540 318', G, 1.3)}
+
+  <!-- the hybrid router -->
+  {_node(540, 270, 230, 120, 'Firebase AI Logic', 'InferenceMode per task', '#E2E8F0', 1.3, fill='#111827')}
+  {_edge('M600 390 C 600 440, 560 450, 520 470', G, 2.2, 'PREFER_ON_DEVICE', 690, 450)}
+  {_edge(ROUTE_TO_CLOUD, B, 3.6, 'PREFER_IN_CLOUD', 900, 180)}
+  {_packet(ROUTE_TO_CLOUD, '[TOKENS]', '#5EEAD4', 4.4)}
+
+  <!-- cloud side -->
+  {_node(975, 205, 210, 90, 'App Check', 'reCAPTCHA Ent.', B, 3.6)}
+  {_node(1225, 205, 220, 90, 'Gemini', '3.5 Flash-Lite', B, 4.4, fill='#0B1736')}
+  {_edge('M1185 250 L1225 250', B, 4.4)}
+  {_node(975, 335, 210, 80, 'Remote Config', 'live policy', A, 5.7)}
+  {_edge('M975 375 C 880 375, 830 360, 770 350', A, 6.0, 'policy', 915, 410, dash='4 7')}
+  {_node(975, 455, 210, 80, 'Firestore', 'zeroLeakVerified rules', G, 7.0)}
+  {_edge('M175 444 C 175 640, 760 630, 975 505', G, 7.3, 'redacted vaults only', 470, 612)}
+  {_node(1225, 335, 220, 80, 'Authentication', 'anonymous · Google', '#C4B5FD', 9.1)}
+  {_node(1225, 455, 220, 80, 'Hosting', 'cloakvault.buzz', '#C4B5FD', 10.1)}
+</svg>"""
+
+CARD_ARCH = f"""{KEYFRAMES}<style>
+@keyframes cvFade{{from{{opacity:0}}to{{opacity:1}}}}
+@keyframes cvFlash{{0%{{opacity:0}}25%{{opacity:.9}}100%{{opacity:0}}}}
+</style><div style="{BG}"></div><div style="{GRID}"></div>
+<div style="position:relative;color:#fff;text-align:center">
+  <div class="cv-up" style="{MONO};font-size:18px;letter-spacing:.22em;color:#93C5FD">ARCHITECTURE</div>
+  <div class="cv-up" style="{SERIF};font-size:58px;line-height:1.05;margin:10px 0 6px;animation-delay:.1s">One hybrid SDK. A boundary raw PII never crosses.</div>
+  <div style="transform:scale(.98);transform-origin:top center">{ARCH_SVG}</div>
+</div>"""

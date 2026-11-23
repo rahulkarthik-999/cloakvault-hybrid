@@ -1,0 +1,209 @@
+WEBVTT
+
+1
+00:00:00.250 --> 00:00:02.856
+Would you paste your NDA, your bank statement,
+
+2
+00:00:02.856 --> 00:00:04.952
+or your hospital bill into a chatbot?
+
+3
+00:00:04.952 --> 00:00:08.918
+Those documents are full of names, account numbers and government IDs.
+
+4
+00:00:08.918 --> 00:00:12.488
+So most people skip the review, and sign the bad clause anyway.
+
+5
+00:00:13.049 --> 00:00:14.498
+CloakVault fixes that.
+
+6
+00:00:14.498 --> 00:00:19.306
+It's a privacy-first document workbench built on Firebase AI Logic hybrid
+
+7
+00:00:19.306 --> 00:00:19.964
+inference.
+
+8
+00:00:19.964 --> 00:00:22.664
+Personal data is redacted on your device,
+
+9
+00:00:22.664 --> 00:00:25.430
+and only safe tokens ever reach the cloud.
+
+10
+00:00:25.998 --> 00:00:27.120
+There's no sign-up.
+
+11
+00:00:27.120 --> 00:00:31.253
+Open the workbench, and a sample freelance contract is already loaded.
+
+12
+00:00:35.787 --> 00:00:39.244
+Here's the original, parsed entirely in the browser.
+
+13
+00:00:39.244 --> 00:00:43.232
+And here's what the AI will see: every name, address, email,
+
+14
+00:00:43.232 --> 00:00:47.353
+tax ID and bank account, swapped for a reversible local token.
+
+15
+00:00:47.922 --> 00:00:49.855
+Spot something else that's sensitive?
+
+16
+00:00:49.855 --> 00:00:52.049
+Highlight it, and it's redacted instantly.
+
+17
+00:00:54.263 --> 00:00:58.534
+Every AI task has its own Firebase AI Logic inference mode.
+
+18
+00:00:58.534 --> 00:01:01.791
+Contextual PII discovery runs only on device.
+
+19
+00:01:01.791 --> 00:01:05.048
+Triage and chat prefer Gemini Nano on device.
+
+20
+00:01:05.048 --> 00:01:07.147
+Deep audits prefer the cloud.
+
+21
+00:01:07.147 --> 00:01:11.708
+This browser has no Nano, so the SDK falls back to cloud Gemini
+
+22
+00:01:11.708 --> 00:01:16.051
+automatically, and Remote Config can retune every mode live.
+
+23
+00:01:20.186 --> 00:01:21.803
+Let's run a hybrid audit.
+
+24
+00:01:21.803 --> 00:01:25.879
+Only the tokenized text goes to Gemini, protected by App Check.
+
+25
+00:01:25.879 --> 00:01:30.408
+Seconds later, the verdict: critical risk, with clause-level findings.
+
+26
+00:01:32.304 --> 00:01:34.617
+Each finding quotes the exact clause.
+
+27
+00:01:34.617 --> 00:01:38.993
+Click Locate to jump straight to it, and copy a ready-to-send redline.
+
+28
+00:01:38.993 --> 00:01:40.931
+The cloud only ever saw tokens,
+
+29
+00:01:40.931 --> 00:01:44.807
+but the real names are re-hydrated right here, in the browser.
+
+30
+00:01:48.237 --> 00:01:49.358
+Don't trust us.
+
+31
+00:01:49.358 --> 00:01:50.553
+Verify the wire.
+
+32
+00:01:50.553 --> 00:01:55.486
+This view shows the exact bytes that were sent, with zero raw PII,
+
+33
+00:01:55.486 --> 00:01:59.447
+and SHA-256 hashes of the original and redacted text,
+
+34
+00:01:59.447 --> 00:02:01.315
+computed with Web Crypto.
+
+35
+00:02:01.911 --> 00:02:05.013
+Ask a follow-up, and the answer streams token by token,
+
+36
+00:02:05.013 --> 00:02:08.679
+labelled with where it actually ran, and its time to first token.
+
+37
+00:02:09.234 --> 00:02:14.337
+Telemetry records the real inference source, latency, and bytes kept local,
+
+38
+00:02:14.337 --> 00:02:15.833
+for every single call.
+
+39
+00:02:16.390 --> 00:02:20.525
+Switch on air-gap mode, and every task is locked to the device.
+
+40
+00:02:20.525 --> 00:02:22.822
+With Gemini Nano installed, triage,
+
+41
+00:02:22.822 --> 00:02:25.644
+chat and audits keep working fully offline.
+
+42
+00:02:25.644 --> 00:02:29.779
+Without it, CloakVault refuses, and nothing leaves the machine.
+
+43
+00:02:30.363 --> 00:02:34.394
+The same pipeline handles itemized medical bills and bank statements,
+
+44
+00:02:34.394 --> 00:02:38.717
+and a Chrome side panel extension brings it to the terms of service on any
+
+45
+00:02:38.717 --> 00:02:39.242
+web page.
+
+46
+00:02:39.793 --> 00:02:43.121
+Under the hood: Firebase AI Logic hybrid inference,
+
+47
+00:02:43.121 --> 00:02:46.449
+App Check with reCAPTCHA Enterprise, Remote Config,
+
+48
+00:02:46.449 --> 00:02:50.952
+Firestore with zero-leak security rules, Authentication, and Hosting.
+
+49
+00:02:51.548 --> 00:02:52.294
+CloakVault.
+
+50
+00:02:52.294 --> 00:02:53.855
+Get the second opinion.
+
+51
+00:02:53.855 --> 00:02:55.009
+Keep the secrets.
+
+52
+00:02:55.009 --> 00:02:57.113
+Try it free at cloakvault.buzz.

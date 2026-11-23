@@ -354,6 +354,7 @@ export function Landing() {
             <Wordmark size={30} />
           </a>
           <div className="hidden items-center gap-7 text-[13.5px] text-[#4A5061] md:flex">
+            <a href="#demo" className="transition hover:text-[#0E1015]">Demo</a>
             <a href="#how" className="transition hover:text-[#0E1015]">How it works</a>
             <a href="#routing" className="transition hover:text-[#0E1015]">Hybrid routing</a>
             <a href="#proof" className="transition hover:text-[#0E1015]">Proof</a>
@@ -414,23 +415,12 @@ export function Landing() {
                 Open the workbench
                 <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </button>
-              {DEMO_URL ? (
-                <a
-                  href={DEMO_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-12 items-center gap-2 rounded-full border border-[#E5E7EC] bg-white px-5 text-[15px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB]"
-                >
-                  <Play className="h-4 w-4 fill-current" /> Watch the 2-min demo
-                </a>
-              ) : (
-                <a
-                  href="#how"
-                  className="flex h-12 items-center gap-2 rounded-full border border-[#E5E7EC] bg-white px-5 text-[15px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB]"
-                >
-                  See how it works
-                </a>
-              )}
+              <a
+                href="#demo"
+                className="flex h-12 items-center gap-2 rounded-full border border-[#E5E7EC] bg-white px-5 text-[15px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB]"
+              >
+                <Play className="h-4 w-4 fill-current" /> Watch the demo
+              </a>
             </div>
             <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[12.5px] text-[#697083]">
               <span className="flex items-center gap-1.5"><BadgeCheck className="h-3.5 w-3.5 text-emerald-600" /> No sign-up</span>
@@ -441,6 +431,43 @@ export function Landing() {
           <div className="min-w-0 animate-fade-up [animation-delay:120ms]">
             <HeroLens />
           </div>
+        </div>
+      </section>
+
+      {/* Demo video */}
+      <section id="demo" className="scroll-mt-20 px-5 pb-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-indigo-700">See it work · under 3 minutes</div>
+              <h2 className="mt-2 font-display text-[34px] leading-tight">Redaction, hybrid routing and the wire proof, live.</h2>
+            </div>
+            {DEMO_URL && (
+              <a
+                href={DEMO_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-[13px] font-medium text-[#4A5061] hover:text-[#0E1015]"
+              >
+                Watch on YouTube <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-[#E5E7EC] bg-[#0E1015] shadow-[0_40px_90px_-40px_rgba(14,16,21,0.55)]">
+            <video
+              className="block aspect-video w-full"
+              controls
+              playsInline
+              preload="metadata"
+              poster="/media/demo-poster.jpg"
+            >
+              <source src="/media/cloakvault-demo.mp4" type="video/mp4" />
+              <track kind="captions" src="/media/cloakvault-demo.en.vtt" srcLang="en" label="English" />
+            </video>
+          </div>
+          <p className="mt-3 text-center text-[12.5px] text-[#697083]">
+            Recorded from the real app with live Firebase AI Logic calls. English narration and captions.
+          </p>
         </div>
       </section>
 

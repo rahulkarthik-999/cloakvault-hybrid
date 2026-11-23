@@ -124,3 +124,17 @@ for sc in m["scenes"]:
         n += 1
 open(os.path.join(OUT, "cloakvault_demo.en.srt"), "w", encoding="utf-8").write("\n".join(cues))
 print("wrote cloakvault_demo.en.srt", n - 1, "cues")
+
+# 6) web copy for the landing page: lighter MP4, WebVTT captions, poster frame
+WEB = os.path.join(os.path.dirname(OUT), "..", "public", "media")
+WEB = os.path.abspath(WEB)
+os.makedirs(WEB, exist_ok=True)
+ff("-i", FINAL, "-c:v", "libx264", "-preset", "slow", "-crf", "29", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+   "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", os.path.join(WEB, "cloakvault-demo.mp4"))
+srt = open(os.path.join(OUT, "cloakvault_demo.en.srt"), encoding="utf-8").read()
+vtt = "WEBVTT\n\n" + "\n".join(
+    line.replace(",", ".") if "-->" in line else line for line in srt.splitlines()
+) + "\n"
+open(os.path.join(WEB, "cloakvault-demo.en.vtt"), "w", encoding="utf-8").write(vtt)
+ff("-ss", "4.2", "-i", FINAL, "-frames:v", "1", "-q:v", "3", os.path.join(WEB, "demo-poster.jpg"))
+print("web copy", round(os.path.getsize(os.path.join(WEB, "cloakvault-demo.mp4")) / 1e6, 1), "MB ->", WEB)
