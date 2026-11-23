@@ -43,6 +43,7 @@ interface InspectorPaneProps {
   onRunNanoPiiScan: () => Promise<void>;
   onRunTriage: () => Promise<void>;
   onRunDeepAudit: () => Promise<void>;
+  onCancelBusy?: () => void;
   onSendChat: (question: string, mode: HybridInferenceMode) => Promise<void>;
   onToggleEntity: (entityId: string) => void;
   onAddCustomEntity: (text: string, type: PiiType) => void;
@@ -147,6 +148,7 @@ export function InspectorPane({
   onRunNanoPiiScan,
   onRunTriage,
   onRunDeepAudit,
+  onCancelBusy,
   onSendChat,
   onToggleEntity,
   onAddCustomEntity,
@@ -333,14 +335,26 @@ export function InspectorPane({
                   : 'Run Hybrid Audit'}
               </span>
             </button>
-            <button
-              onClick={onRunTriage}
-              disabled={busyAction !== null}
-              className="rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#0E1015] transition hover:bg-[#F3F4F7] disabled:opacity-50"
-              title="Run fast on-device triage summary via Gemini Nano"
-            >
-              {busyAction === 'triage' ? 'Triaging…' : 'Quick Triage'}
-            </button>
+            {busyAction === 'audit' || busyAction === 'triage' ? (
+              onCancelBusy ? (
+                <button
+                  type="button"
+                  onClick={onCancelBusy}
+                  className="rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#4A5061] transition hover:bg-[#F3F4F7] hover:text-[#0E1015]"
+                >
+                  Cancel
+                </button>
+              ) : null
+            ) : (
+              <button
+                onClick={onRunTriage}
+                disabled={busyAction !== null}
+                className="rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#0E1015] transition hover:bg-[#F3F4F7] disabled:opacity-50"
+                title="Run fast triage summary"
+              >
+                Quick Triage
+              </button>
+            )}
           </div>
 
           {/* Honest Runtime Setup Callout when no live AI runtime is ready yet */}

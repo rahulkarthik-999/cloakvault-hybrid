@@ -204,4 +204,32 @@ describe('hybrid inference routing & actual inferenceSource verification', () =>
     expect(mockGetGenerativeModel).not.toHaveBeenCalled();
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
+
+  it('Stalled Nano download times out cleanly instead of spinning forever, and Cancel aborts in-flight cloud calls', async () => {
+    stubNavigator({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+      onLine: true,
+    });
+    (globalThis as Record<string, unknown>).LanguageModel = {
+      availability: vi.fn(async () => 'downloading'),
+      // Never-resolving create() simulates Incognito or low disk stall
+      create: vi.fn(() => new Promise(() => {})),
+    };
+
+    await expect(downloadChromeNanoModel(() => {}, 30)).rejects.toThrow('NANO_DOWNLOAD_STALLED');
+
+    // In-flight cloud request that stalls is aborted cleanly when cancelled
+    mockGenerateContent.mockImplementation(() => new Promise(() => {}));
+    const controller = new AbortController();
+    const pending = runHybridTriage({
+      redactedText: 'Doc for [ORG_1].',
+      category: 'general',
+      cloudModelName: 'gemini-4-hydrogen',
+      forceOffline: false,
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'CANCELLED' });
+  });
 });

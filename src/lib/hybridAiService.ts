@@ -26,10 +26,10 @@ import type {
 } from '../types/vault';
 
 export class AIUnavailableError extends Error {
-  readonly code: 'NO_ENGINE' | 'NANO_REQUIRED' | 'OFFLINE_NO_NANO' | 'PROVIDER_ERROR';
+  readonly code: 'NO_ENGINE' | 'NANO_REQUIRED' | 'OFFLINE_NO_NANO' | 'PROVIDER_ERROR' | 'TIMEOUT' | 'CANCELLED';
   constructor(
     message: string,
-    code: 'NO_ENGINE' | 'NANO_REQUIRED' | 'OFFLINE_NO_NANO' | 'PROVIDER_ERROR'
+    code: 'NO_ENGINE' | 'NANO_REQUIRED' | 'OFFLINE_NO_NANO' | 'PROVIDER_ERROR' | 'TIMEOUT' | 'CANCELLED'
   ) {
     super(message);
     this.name = 'AIUnavailableError';
@@ -50,8 +50,71 @@ export async function getNanoCapabilitySnapshot(): Promise<NanoCapabilitySnapsho
   return detectNanoCapabilities();
 }
 
+const NANO_DOWNLOAD_STALL_MS = 35_000;
+const CLOUD_REQUEST_TIMEOUT_MS = 35_000;
+
+class RequestTimeoutError extends Error {
+  constructor() {
+    super('REQUEST_TIMED_OUT');
+    this.name = 'RequestTimeoutError';
+  }
+}
+
+class RequestCancelledError extends Error {
+  constructor() {
+    super('REQUEST_CANCELLED');
+    this.name = 'RequestCancelledError';
+  }
+}
+
+function raceWithTimeoutAndSignal<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  abortController: AbortController,
+  externalSignal?: AbortSignal
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (externalSignal?.aborted) {
+      abortController.abort();
+      reject(new RequestCancelledError());
+      return;
+    }
+
+    const onExternalAbort = () => {
+      cleanup();
+      abortController.abort();
+      reject(new RequestCancelledError());
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      abortController.abort();
+      reject(new RequestTimeoutError());
+    }, timeoutMs);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
+    };
+
+    externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
+
+    promise.then(
+      (val) => {
+        cleanup();
+        resolve(val);
+      },
+      (err) => {
+        cleanup();
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function downloadChromeNanoModel(
-  onProgress: (pct: number) => void
+  onProgress: (pct: number) => void,
+  stallTimeoutMs: number = NANO_DOWNLOAD_STALL_MS
 ): Promise<boolean> {
   // Never attempt to download or install Gemini Nano on mobile or unsupported browsers.
   const snapshot = await detectNanoCapabilities();
@@ -61,17 +124,53 @@ export async function downloadChromeNanoModel(
 
   const lm = getChromeLanguageModelGlobal();
   if (!lm) return false;
-  const session = await lm.create({
-    expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
-    monitor(m) {
-      m.addEventListener('downloadprogress', (e) => {
-        const pct = e.total ? Math.round((e.loaded / e.total) * 100) : Math.round(e.loaded * 100);
-        onProgress(Math.min(100, Math.max(0, pct)));
+
+  return new Promise<boolean>((resolve, reject) => {
+    let settled = false;
+    let lastPct = -1;
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resetStallTimer = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('NANO_DOWNLOAD_STALLED'));
+      }, stallTimeoutMs);
+    };
+
+    resetStallTimer();
+
+    lm.create({
+      expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
+      monitor(m) {
+        m.addEventListener('downloadprogress', (e) => {
+          const pct = e.total ? Math.round((e.loaded / e.total) * 100) : Math.round(e.loaded * 100);
+          const clamped = Math.min(100, Math.max(0, pct));
+          if (clamped > lastPct) {
+            lastPct = clamped;
+            if (!settled) resetStallTimer();
+          }
+          if (!settled) onProgress(clamped);
+        });
+      },
+    })
+      .then((session) => {
+        session.destroy?.();
+        if (!settled) {
+          settled = true;
+          if (stallTimer) clearTimeout(stallTimer);
+          resolve(true);
+        }
+      })
+      .catch((err) => {
+        if (!settled) {
+          settled = true;
+          if (stallTimer) clearTimeout(stallTimer);
+          reject(err);
+        }
       });
-    },
   });
-  session.destroy?.();
-  return true;
 }
 
 function toSdkInferenceMode(mode: HybridInferenceMode): InferenceMode {
@@ -155,6 +254,8 @@ async function executeHybridInference(params: {
   allowCloud: boolean;
   thinkingLevel?: 'MINIMAL' | 'LOW';
   responseMimeType?: 'application/json' | 'text/plain';
+  timeoutMs?: number;
+  signal?: AbortSignal;
   onTokenChunk?: (accumulatedText: string) => void;
   onRetry?: (attempt: number, maxAttempts: number) => void;
 }): Promise<HybridGenerationOutput> {
@@ -224,12 +325,27 @@ async function executeHybridInference(params: {
         },
       });
 
+      const requestTimeoutMs = params.timeoutMs ?? CLOUD_REQUEST_TIMEOUT_MS;
+      const attemptAbort = new AbortController();
+
       if (params.onTokenChunk) {
-        const streamRes = await model.generateContentStream(params.prompt);
+        const streamRes = await raceWithTimeoutAndSignal(
+          model.generateContentStream(params.prompt, {
+            signal: attemptAbort.signal,
+            timeout: requestTimeoutMs,
+          }),
+          requestTimeoutMs,
+          attemptAbort,
+          params.signal
+        );
         let accumulated = '';
         let ttftMs = 0;
 
         for await (const chunk of streamRes.stream) {
+          if (params.signal?.aborted) {
+            attemptAbort.abort();
+            throw new RequestCancelledError();
+          }
           const piece = chunk.text();
           if (piece) {
             streamedAnyToken = true;
@@ -239,7 +355,12 @@ async function executeHybridInference(params: {
           }
         }
 
-        const finalResp = await streamRes.response;
+        const finalResp = await raceWithTimeoutAndSignal(
+          streamRes.response,
+          requestTimeoutMs,
+          attemptAbort,
+          params.signal
+        );
         const src =
           finalResp.inferenceSource === InferenceSource.ON_DEVICE
             ? 'ON_DEVICE'
@@ -259,7 +380,15 @@ async function executeHybridInference(params: {
         };
       }
 
-      const result = await model.generateContent(params.prompt);
+      const result = await raceWithTimeoutAndSignal(
+        model.generateContent(params.prompt, {
+          signal: attemptAbort.signal,
+          timeout: requestTimeoutMs,
+        }),
+        requestTimeoutMs,
+        attemptAbort,
+        params.signal
+      );
       const source = resolveInferenceSource(result, effectiveMode);
       const totalMs = Math.round(performance.now() - started);
       return {
@@ -270,6 +399,15 @@ async function executeHybridInference(params: {
         ttftMs: totalMs,
       };
     } catch (err) {
+      if (err instanceof RequestCancelledError) {
+        throw new AIUnavailableError('Request cancelled.', 'CANCELLED');
+      }
+      if (err instanceof RequestTimeoutError) {
+        throw new AIUnavailableError(
+          'Cloud AI timed out before responding. If you are using Incognito or blocking third-party cookies/scripts (reCAPTCHA), try a normal browser window or allow cookies for this site and retry.',
+          'TIMEOUT'
+        );
+      }
       lastError = err;
       if (streamedAnyToken || effectiveMode === 'only_on_device' || !isTransientProviderError(err) || attempt === RETRY_DELAYS_MS.length) {
         break;
@@ -424,6 +562,7 @@ export async function runHybridTriage(params: {
   category: DocumentCategory;
   cloudModelName: string;
   forceOffline?: boolean;
+  signal?: AbortSignal;
 }): Promise<{
   summary: string;
   documentType: string;
@@ -449,6 +588,7 @@ ${params.redactedText.slice(0, 5000)}`;
     mode: params.forceOffline ? 'only_on_device' : 'prefer_on_device',
     cloudModelName: params.cloudModelName,
     allowCloud: !params.forceOffline,
+    signal: params.signal,
   });
 
   const parsed = extractJsonBlock<{
@@ -482,6 +622,7 @@ export async function runHybridDeepAudit(params: {
   cloudModelName: string;
   piiBytesProtected: number;
   forceOffline?: boolean;
+  signal?: AbortSignal;
 }): Promise<AuditReport> {
   const effectiveMode: HybridInferenceMode = params.forceOffline ? 'only_on_device' : params.mode;
 
@@ -521,6 +662,7 @@ ${params.redactedText.slice(0, 12000)}`;
       allowCloud: !params.forceOffline,
       thinkingLevel: 'LOW',
       responseMimeType: 'application/json',
+      signal: params.signal,
     }),
     sha256Hex(params.rawText),
     sha256Hex(params.redactedText),

@@ -5,6 +5,8 @@ import type { SystemCapabilities } from '../types/vault';
 interface NanoStatusControlProps {
   capabilities: SystemCapabilities;
   onDownloadNano: () => void;
+  nanoDownloadStalled?: boolean;
+  onDismissNanoInstall?: () => void;
 }
 
 /**
@@ -17,7 +19,12 @@ interface NanoStatusControlProps {
  *
  * Never exposes raw API errors, CPU/RAM diagnostics, chrome:// URLs, or desktop install instructions.
  */
-export function NanoStatusControl({ capabilities, onDownloadNano }: NanoStatusControlProps) {
+export function NanoStatusControl({
+  capabilities,
+  onDownloadNano,
+  nanoDownloadStalled = false,
+  onDismissNanoInstall,
+}: NanoStatusControlProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { nanoCapability, chromeNanoStatus, chromeNanoDownloadProgress } = capabilities;
@@ -55,8 +62,12 @@ export function NanoStatusControl({ capabilities, onDownloadNano }: NanoStatusCo
     );
   }
 
-  // 2. Desktop Chrome actively downloading Gemini Nano
-  if (nanoCapability.canDownloadOnDevice && chromeNanoStatus === 'downloading') {
+  // 2. Desktop Chrome actively downloading Gemini Nano (auto-falls back to Cloud AI if stalled)
+  if (
+    nanoCapability.canDownloadOnDevice &&
+    chromeNanoStatus === 'downloading' &&
+    !nanoDownloadStalled
+  ) {
     const pct = chromeNanoDownloadProgress;
     return (
       <div className="relative" ref={ref}>
@@ -90,7 +101,7 @@ export function NanoStatusControl({ capabilities, onDownloadNano }: NanoStatusCo
               Chrome is preparing Gemini Nano for local inference on this device. You can continue
               auditing documents with sanitized Cloud AI while this completes.
             </p>
-            {pct !== null && (
+            {pct !== null && pct > 0 && (
               <div className="mt-2.5">
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#EEF0F4]">
                   <div
@@ -99,6 +110,20 @@ export function NanoStatusControl({ capabilities, onDownloadNano }: NanoStatusCo
                   />
                 </div>
                 <div className="mt-1 font-mono text-[10.5px] text-[#697083]">{pct}% complete</div>
+              </div>
+            )}
+            {onDismissNanoInstall && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onDismissNanoInstall();
+                  }}
+                  className="rounded-md border border-[#E5E7EC] bg-white px-2.5 py-1 text-[11px] font-medium text-[#3A3F4D] hover:bg-[#F3F4F7]"
+                >
+                  Use Cloud AI instead
+                </button>
               </div>
             )}
           </div>

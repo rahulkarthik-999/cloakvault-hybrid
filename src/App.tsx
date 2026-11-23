@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SAMPLE_DOCUMENTS } from './data/sampleDocuments';
 import { applyRedaction, extractDeterministicPii, mergeEntities } from './lib/piiEngine';
 import { extractTextFromFile } from './lib/pdfParser';
@@ -86,6 +86,8 @@ export default function App() {
   const [highlightedQuote, setHighlightedQuote] = useState<string | null>(null);
   const [airGapMode, setAirGapMode] = useState(false);
   const [busyAction, setBusyAction] = useState<'pii' | 'triage' | 'audit' | 'sync' | null>(null);
+  const [nanoDownloadStalled, setNanoDownloadStalled] = useState(false);
+  const activeAbortRef = useRef<AbortController | null>(null);
   const [chatStreaming, setChatStreaming] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [firebaseModalOpen, setFirebaseModalOpen] = useState(false);
@@ -103,6 +105,7 @@ export default function App() {
   const [mobilePane, setMobilePane] = useState<'files' | 'doc' | 'insights'>('doc');
 
   const reportAiFailure = (err: unknown, fallback: string) => {
+    if (err instanceof AIUnavailableError && err.code === 'CANCELLED') return;
     if (err instanceof AIUnavailableError && err.code === 'NANO_REQUIRED') {
       setAiError(null);
       setShieldNotice(err.message);
@@ -288,11 +291,36 @@ export default function App() {
     }
   };
 
+  // If Chrome stays stuck in 'downloading' with 0%/null progress (e.g. Incognito or low disk),
+  // stop spinning and fall back smoothly to the calm "Cloud AI active" indicator after 35s.
+  useEffect(() => {
+    if (capabilities.chromeNanoStatus === 'available') {
+      setNanoDownloadStalled(false);
+      return;
+    }
+    if (
+      capabilities.chromeNanoStatus === 'downloading' &&
+      (capabilities.chromeNanoDownloadProgress === null || capabilities.chromeNanoDownloadProgress === 0)
+    ) {
+      const stallTimer = window.setTimeout(() => {
+        setNanoDownloadStalled(true);
+      }, 35_000);
+      return () => window.clearTimeout(stallTimer);
+    }
+  }, [capabilities.chromeNanoStatus, capabilities.chromeNanoDownloadProgress]);
+
+  const handleCancelBusy = () => {
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+    setBusyAction(null);
+  };
+
   const handleDownloadNano = async () => {
     // Never attempt to download or install Gemini Nano on mobile or unsupported browsers.
     if (!capabilities.nanoCapability.canDownloadOnDevice) return;
 
     setAiError(null);
+    setNanoDownloadStalled(false);
     setCapabilities((c) => ({
       ...c,
       chromeNanoStatus: 'downloading',
@@ -310,13 +338,20 @@ export default function App() {
         chromeNanoDownloadProgress: null,
       }));
     } catch (err) {
-      const detail =
-        capabilities.nanoCapability.shouldExposeDiagnostics && err instanceof Error
-          ? ` (${err.message})`
-          : '';
-      setAiError(
-        `On-device AI could not be installed right now${detail}. Sanitized Cloud AI remains active.`
-      );
+      if (err instanceof Error && err.message === 'NANO_DOWNLOAD_STALLED') {
+        setNanoDownloadStalled(true);
+        setAiError(
+          'On-device AI download did not progress in this browser (Incognito mode or low free disk space can prevent Chrome from downloading Gemini Nano). Sanitized Cloud AI remains active.'
+        );
+      } else {
+        const detail =
+          capabilities.nanoCapability.shouldExposeDiagnostics && err instanceof Error
+            ? ` (${err.message})`
+            : '';
+        setAiError(
+          `On-device AI could not be installed right now${detail}. Sanitized Cloud AI remains active.`
+        );
+      }
       const snapshot = await getNanoCapabilitySnapshot();
       setCapabilities((c) => ({
         ...c,
@@ -476,6 +511,8 @@ export default function App() {
     setAiError(null);
     setShieldNotice(null);
     setBusyAction('triage');
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
     try {
       const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
       const res = await runHybridTriage({
@@ -483,6 +520,7 @@ export default function App() {
         category: activeVault.category,
         cloudModelName: remotePolicy.cloudModelName,
         forceOffline: airGapMode || !capabilities.online,
+        signal: controller.signal,
       });
       updateActiveVault((v) => ({
         ...v,
@@ -522,6 +560,8 @@ export default function App() {
     setAiError(null);
     setShieldNotice(null);
     setBusyAction('audit');
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
     try {
       const redaction = applyRedaction(activeVault.rawText, activeVault.entities);
       if (remotePolicy.strictPiiShield && !redaction.zeroLeakVerified) {
@@ -539,6 +579,7 @@ export default function App() {
         cloudModelName: remotePolicy.cloudModelName,
         piiBytesProtected: redaction.shieldedBytes,
         forceOffline: airGapMode || !capabilities.online,
+        signal: controller.signal,
       });
 
       updateActiveVault((v) => ({ ...v, auditReport: report }));
@@ -710,6 +751,8 @@ export default function App() {
           setShieldNotice(null);
         }}
         onDownloadNano={handleDownloadNano}
+        nanoDownloadStalled={nanoDownloadStalled}
+        onDismissNanoInstall={() => setNanoDownloadStalled(true)}
         onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
         onOpenAuthModal={openAuthModal}
         onExportRedactedTxt={() => exportRedactedDocument(activeVault)}
@@ -781,6 +824,7 @@ export default function App() {
           onRunNanoPiiScan={handleRunNanoPiiScan}
           onRunTriage={handleRunTriage}
           onRunDeepAudit={handleRunDeepAudit}
+          onCancelBusy={handleCancelBusy}
           onSendChat={handleSendChat}
           onToggleEntity={handleToggleEntity}
           onAddCustomEntity={handleAddCustomEntity}

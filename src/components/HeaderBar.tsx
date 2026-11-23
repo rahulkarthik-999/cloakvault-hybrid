@@ -25,6 +25,8 @@ interface HeaderBarProps {
   airGapMode: boolean;
   onToggleAirGap: () => void;
   onDownloadNano: () => void;
+  nanoDownloadStalled?: boolean;
+  onDismissNanoInstall?: () => void;
   onOpenFirebaseModal: () => void;
   onOpenAuthModal: (mode: AuthModalMode) => void;
   onExportRedactedTxt: () => void;
@@ -46,6 +48,8 @@ export function HeaderBar({
   airGapMode,
   onToggleAirGap,
   onDownloadNano,
+  nanoDownloadStalled,
+  onDismissNanoInstall,
   onOpenFirebaseModal,
   onOpenAuthModal,
   onExportRedactedTxt,
@@ -104,7 +108,12 @@ export function HeaderBar({
       {/* Right: Real Runtime Controls (scrolls sideways on phones) */}
       <div className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:w-auto lg:shrink-0 lg:overflow-visible lg:px-0 xl:gap-2 [&>*]:shrink-0">
         {/* Platform-aware AI Runtime Status Control */}
-        <NanoStatusControl capabilities={capabilities} onDownloadNano={onDownloadNano} />
+        <NanoStatusControl
+          capabilities={capabilities}
+          onDownloadNano={onDownloadNano}
+          nanoDownloadStalled={nanoDownloadStalled}
+          onDismissNanoInstall={onDismissNanoInstall}
+        />
 
         {/* Network / Air-Gap Segmented Toggle */}
         <button
