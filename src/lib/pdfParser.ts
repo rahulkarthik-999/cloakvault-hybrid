@@ -4,11 +4,46 @@ import mammoth from 'mammoth';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
+let workerWarmPromise: Promise<void> | null = null;
+let cachedWorkerBlobUrl: string | null = null;
+
+/**
+ * Eagerly fetches the PDF.js worker script while online and pins it to an
+ * in-memory Blob URL (and populates the PWA service-worker cache) so local
+ * PDF imports keep working with zero network access in Air-Gap / Offline mode.
+ */
+export function warmPdfWorkerForOffline(): Promise<void> {
+  if (cachedWorkerBlobUrl) return Promise.resolve();
+  if (workerWarmPromise) return workerWarmPromise;
+  if (typeof window === 'undefined' || typeof fetch === 'undefined') {
+    return Promise.resolve();
+  }
+
+  workerWarmPromise = fetch(workerUrl, { credentials: 'same-origin' })
+    .then(async (res) => {
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const jsBlob = new Blob([blob], { type: 'text/javascript' });
+      cachedWorkerBlobUrl = URL.createObjectURL(jsBlob);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = cachedWorkerBlobUrl;
+    })
+    .catch(() => {
+      // Allow retry later once network or service-worker cache is ready
+      workerWarmPromise = null;
+    });
+
+  return workerWarmPromise;
+}
+
+// Pre-warm immediately when the workbench loads so PDF parsing works offline
+void warmPdfWorkerForOffline();
+
 export async function extractTextFromFile(file: File): Promise<string> {
   const name = file.name.toLowerCase();
 
   // 100% browser-side PDF extraction
   if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    await warmPdfWorkerForOffline();
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     const pages: string[] = [];

@@ -1,7 +1,7 @@
 /* CloakVault service worker — offline app shell (pairs with air-gap mode).
  * Only same-origin GETs are cached. Firebase / Gemini / App Check calls are cross-origin and
  * always go to the network, so no AI request or document data is ever cached here. */
-const CACHE = 'cloakvault-shell-v1';
+const CACHE = 'cloakvault-shell-v2';
 const SHELL = ['/', '/app', '/manifest.webmanifest', '/brand/mark.png', '/brand/wordmark.png', '/brand/icon-192.png'];
 
 self.addEventListener('install', (e) => {
