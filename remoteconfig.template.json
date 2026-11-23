@@ -1,0 +1,39 @@
+{
+  "parameters": {
+    "cloud_model_name": {
+      "defaultValue": {
+        "value": "gemini-4-hydrogen"
+      },
+      "description": "Gemini cloud model for sanitized escalation",
+      "valueType": "STRING"
+    },
+    "default_qa_inference_mode": {
+      "defaultValue": {
+        "value": "prefer_on_device"
+      },
+      "description": "Default Firebase AI Logic inference mode for document Q&A",
+      "valueType": "STRING"
+    },
+    "deep_audit_inference_mode": {
+      "defaultValue": {
+        "value": "prefer_in_cloud"
+      },
+      "description": "Default Firebase AI Logic inference mode for deep clause-by-clause risk audits",
+      "valueType": "STRING"
+    },
+    "strict_pii_shield": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Block cloud escalation if any active PII entity remains unredacted",
+      "valueType": "BOOLEAN"
+    },
+    "max_local_context_chars": {
+      "defaultValue": {
+        "value": "7500"
+      },
+      "description": "Maximum character context sent to on-device Gemini Nano before truncating",
+      "valueType": "NUMBER"
+    }
+  }
+}

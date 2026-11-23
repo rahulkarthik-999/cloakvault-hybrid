@@ -76,7 +76,7 @@ const ai = getAI(app, { backend: new GoogleAIBackend() });
 // src/lib/hybridAiService.ts
 const model = getGenerativeModel(ai, {
   mode: InferenceMode.PREFER_IN_CLOUD,           // per task, overridable via Remote Config
-  inCloudParams: { model: 'gemini-3.5-flash-lite', systemInstruction, generationConfig },
+  inCloudParams: { model: 'gemini-4-hydrogen', systemInstruction, generationConfig },
   onDeviceParams: { createOptions: { expectedOutputs: [{ type: 'text', languages: ['en'] }] } },
 });
 const result = await model.generateContent(tokenizedPrompt);

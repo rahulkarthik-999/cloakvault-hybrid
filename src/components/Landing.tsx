@@ -201,7 +201,7 @@ function HeroLens() {
 const STACK = [
   { icon: Sparkles, label: 'Firebase AI Logic' },
   { icon: Cpu, label: 'Gemini Nano (on-device)' },
-  { icon: Cloud, label: 'Gemini 3.5 Flash-Lite' },
+  { icon: Cloud, label: 'Gemini 4 Hydrogen' },
   { icon: ShieldCheck, label: 'App Check' },
   { icon: SlidersHorizontal, label: 'Remote Config' },
   { icon: Database, label: 'Cloud Firestore' },
@@ -702,7 +702,7 @@ export function Landing() {
             <pre className="whitespace-pre-wrap">
 {`{
   "mode": "PREFER_IN_CLOUD",
-  "model": "gemini-3.5-flash-lite",
+  "model": "gemini-4-hydrogen",
   "payload": "Between `}<span className="text-emerald-300">[ORG_1]</span>{`, represented by `}<span className="text-emerald-300">[PERSON_1]</span>{` … wired to `}<span className="text-emerald-300">[ACCOUNT_1]</span>{` Net-90 …",
   "rawPiiBytesSent": `}<span className="text-emerald-300">0</span>{`,
   "piiBytesKeptLocal": 336,

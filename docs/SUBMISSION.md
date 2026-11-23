@@ -36,7 +36,7 @@ It also includes an **air-gap mode** that locks every task to on-device and refu
 
 ## How we built it (how we use Firebase AI Logic)
 
-- **Firebase AI Logic hybrid inference** (`firebase/ai`): `getAI(app, { backend: new GoogleAIBackend() })` plus one `getGenerativeModel()` per task, each with its own `InferenceMode`, `inCloudParams` (Gemini 3.5 Flash-Lite with system instructions, JSON mode and thinking level) and `onDeviceParams`. Chat uses `generateContentStream`. Every response's `inferenceSource` is shown in the UI and logged.
+- **Firebase AI Logic hybrid inference** (`firebase/ai`): `getAI(app, { backend: new GoogleAIBackend() })` plus one `getGenerativeModel()` per task, each with its own `InferenceMode`, `inCloudParams` (Gemini 4 Hydrogen with system instructions, JSON mode and thinking level) and `onDeviceParams`. Chat uses `generateContentStream`. Every response's `inferenceSource` is shown in the UI and logged.
 - **App Check** with reCAPTCHA Enterprise protects every cloud inference. Debug tokens are only used in local development.
 - **Remote Config** sets live policy: per-task inference modes, cloud model name, a strict PII shield that blocks escalation if any entity is still exposed, and the maximum local context size.
 - **Cloud Firestore** stores only redacted vaults and telemetry. Security rules **require `zeroLeakVerified == true` and an allowlisted field set**, so raw text can't be synced even by a modified client.

@@ -235,11 +235,15 @@ async function executeHybridInference(params: {
   for (let attempt = 0; bundle.ai && attempt <= RETRY_DELAYS_MS.length; attempt++) {
     let streamedAnyToken = false;
     try {
-      const supportsThinkingLevel = params.cloudModelName.startsWith('gemini-3');
+      const isGemini4 = params.cloudModelName.startsWith('gemini-4');
+      const supportsThinkingLevel = params.cloudModelName.startsWith('gemini-3') || isGemini4;
       const generationConfig: Record<string, unknown> = {};
       if (supportsThinkingLevel && params.thinkingLevel) {
+        // Gemini 4 models support LOW/MEDIUM/HIGH/XHIGH (MINIMAL is rejected with HTTP 400).
+        const resolvedLevel =
+          isGemini4 && params.thinkingLevel === 'MINIMAL' ? 'LOW' : params.thinkingLevel;
         generationConfig.thinkingConfig = {
-          thinkingLevel: ThinkingLevel[params.thinkingLevel],
+          thinkingLevel: ThinkingLevel[resolvedLevel],
         };
       }
       if (params.responseMimeType) {

@@ -35,7 +35,7 @@ const LOCAL_CONFIG_STORAGE_KEY = 'cloakvault_firebase_override_v1';
 export const DEFAULT_REMOTE_POLICY: RemotePolicyConfig = {
   defaultQaMode: 'prefer_on_device',
   deepAuditMode: 'prefer_in_cloud',
-  cloudModelName: 'gemini-3.5-flash-lite',
+  cloudModelName: 'gemini-4-hydrogen',
   strictPiiShield: true,
   maxLocalContextChars: 7500,
   source: 'DEFAULT',
