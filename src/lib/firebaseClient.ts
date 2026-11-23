@@ -340,8 +340,9 @@ export async function signUpWithEmail(
   const trimmedName = displayName?.trim();
   if (trimmedName) {
     await updateProfile(cred.user, { displayName: trimmedName });
+    await cred.user.reload();
   }
-  return cred.user;
+  return bundle.auth.currentUser ?? cred.user;
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User | null> {

@@ -80,7 +80,7 @@ export function HeaderBar({
   return (
     <header className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E5E7EC] bg-white/90 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur lg:h-14 lg:flex-nowrap lg:py-0">
       {/* Left: Wordmark + Editable Document Title */}
-      <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-none">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
         <a
           href="/"
           className="flex shrink-0 items-center rounded-md transition hover:opacity-80"
@@ -89,7 +89,7 @@ export function HeaderBar({
           <Wordmark size={26} />
         </a>
 
-        <span className="hidden text-[#CDD2DB] sm:inline">/</span>
+        <span className="hidden shrink-0 text-[#CDD2DB] sm:inline">/</span>
 
         <input
           id="vault-document-title"
@@ -98,10 +98,10 @@ export function HeaderBar({
           value={activeVault.title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           aria-label="Document title"
-          className="hidden min-w-0 max-w-[340px] truncate rounded px-1.5 sm:block py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none"
+          className="hidden min-w-0 max-w-[160px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none sm:block xl:max-w-[240px] 2xl:max-w-[340px]"
         />
 
-        <span className="hidden rounded border border-[#E5E7EC] bg-[#F3F4F7] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#4A5061] xl:inline-block">
+        <span className="hidden shrink-0 rounded border border-[#E5E7EC] bg-[#F3F4F7] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#4A5061] 2xl:inline-block">
           Stored on this device
         </span>
       </div>
@@ -306,9 +306,14 @@ export function HeaderBar({
             }`}
           />
           <span>
-            {capabilities.firebaseConfigured
-              ? `Firebase · ${remotePolicy.cloudModelName}`
-              : 'Firebase Setup'}
+            {capabilities.firebaseConfigured ? (
+              <>
+                Firebase
+                <span className="hidden xl:inline"> · {remotePolicy.cloudModelName}</span>
+              </>
+            ) : (
+              'Firebase Setup'
+            )}
           </span>
           <SlidersHorizontal className="h-3 w-3 opacity-60" />
         </button>

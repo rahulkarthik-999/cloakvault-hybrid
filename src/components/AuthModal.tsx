@@ -24,6 +24,7 @@ import {
   signUpWithEmail,
 } from '../lib/firebaseClient';
 import { BrandMark } from './BrandMark';
+import type { User } from 'firebase/auth';
 import type { SystemCapabilities } from '../types/vault';
 
 export function GoogleLogo({ className = 'h-4 w-4 shrink-0' }: { className?: string }) {
@@ -55,7 +56,7 @@ interface AuthModalProps {
   open: boolean;
   initialMode?: AuthModalMode;
   onClose: () => void;
-  onAuthSuccess?: () => void;
+  onAuthSuccess?: (user?: User | null) => void;
   capabilities: SystemCapabilities;
   authDomain?: string | null;
 }
@@ -116,7 +117,7 @@ export function AuthModal({
     try {
       const user = await signInWithGoogleAccount();
       if (user) {
-        onAuthSuccess?.();
+        onAuthSuccess?.(user);
         onClose();
       }
     } catch (err) {
@@ -157,12 +158,11 @@ export function AuthModal({
 
     setBusyAction('email');
     try {
-      if (mode === 'signup') {
-        await signUpWithEmail(trimmedEmail, password, displayName);
-      } else {
-        await signInWithEmail(trimmedEmail, password);
-      }
-      onAuthSuccess?.();
+      const user =
+        mode === 'signup'
+          ? await signUpWithEmail(trimmedEmail, password, displayName)
+          : await signInWithEmail(trimmedEmail, password);
+      onAuthSuccess?.(user);
       onClose();
     } catch (err) {
       setError(formatAuthError(err));

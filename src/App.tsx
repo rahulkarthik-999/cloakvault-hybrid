@@ -780,6 +780,18 @@ export default function App() {
         open={authModalOpen}
         initialMode={authModalMode}
         onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={(user) => {
+          if (!user) return;
+          setCapabilities((c) => ({
+            ...c,
+            authUserUid: user.uid,
+            authIsAnonymous: user.isAnonymous,
+            authEmail: user.email ?? null,
+            authDisplayName: user.displayName ?? null,
+            authPhotoUrl: user.photoURL ?? null,
+            authProvider: getAuthProviderKind(user),
+          }));
+        }}
         capabilities={capabilities}
         authDomain={bundle.authDomain}
       />
