@@ -7,6 +7,14 @@ import {
 } from 'firebase/ai';
 import { getFirebaseBundle } from './firebaseClient';
 import { sha256Hex } from './cryptoProof';
+import {
+  DEFAULT_NANO_EXPECTED_OUTPUTS,
+  detectNanoCapabilities,
+  detectPlatformEnvironment,
+  getChromeLanguageModelGlobal,
+  shouldExposeDeveloperDiagnostics,
+  type NanoCapabilitySnapshot,
+} from './nanoPlatform';
 import type {
   ActualInferenceSource,
   AuditFinding,
@@ -29,98 +37,29 @@ export class AIUnavailableError extends Error {
   }
 }
 
-interface ChromeLanguageModelSession {
-  prompt(input: string): Promise<string>;
-  promptStreaming?: (input: string) => AsyncIterable<string>;
-  destroy?: () => void;
-}
-
-interface ChromeLanguageModelDownloadMonitor {
-  addEventListener(
-    type: 'downloadprogress',
-    listener: (e: { loaded: number; total?: number }) => void
-  ): void;
-}
-
-interface ChromeLanguageModelGlobal {
-  availability(options?: {
-    expectedOutputs?: Array<{ type: 'text'; languages: string[] }>;
-  }): Promise<'available' | 'downloadable' | 'downloading' | 'unavailable'>;
-  create(options?: {
-    systemPrompt?: string;
-    expectedOutputs?: Array<{ type: 'text'; languages: string[] }>;
-    monitor?: (m: ChromeLanguageModelDownloadMonitor) => void;
-  }): Promise<ChromeLanguageModelSession>;
-}
-
-const DEFAULT_EXPECTED_OUTPUTS: Array<{ type: 'text'; languages: string[] }> = [
-  { type: 'text', languages: ['en'] },
-];
-
-function getChromeLanguageModel(): ChromeLanguageModelGlobal | null {
-  const g = globalThis as unknown as { LanguageModel?: ChromeLanguageModelGlobal };
-  return g.LanguageModel ?? null;
-}
+const DEFAULT_EXPECTED_OUTPUTS = DEFAULT_NANO_EXPECTED_OUTPUTS;
 
 export async function checkChromeNanoAvailability(): Promise<
   'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unsupported'
 > {
-  const lm = getChromeLanguageModel();
-  if (!lm) return 'unsupported';
-  try {
-    return await lm.availability({ expectedOutputs: DEFAULT_EXPECTED_OUTPUTS });
-  } catch {
-    return 'unavailable';
-  }
+  const snapshot = await detectNanoCapabilities();
+  return snapshot.modelAvailability;
 }
 
-/** Minimum desktop Chrome version that exposes the Prompt API (LanguageModel) to web pages. */
-export const NANO_MIN_CHROME_VERSION = 148;
-
-export interface NanoDeviceReport {
-  /** Google Chrome specifically — Edge/Brave/Opera don't ship Gemini Nano. */
-  isGoogleChrome: boolean;
-  chromeMajor: number | null;
-  isMobile: boolean;
-  hasPromptApi: boolean;
-  cpuCores: number | null;
-  /** navigator.deviceMemory is capped at 8 by browsers, so it's only a lower bound. */
-  deviceMemoryGb: number | null;
-}
-
-/** Best-effort, read-only look at whether this browser/device can run Chrome's Gemini Nano. */
-export function getNanoDeviceReport(): NanoDeviceReport {
-  const nav = navigator as Navigator & {
-    userAgentData?: { brands?: Array<{ brand: string; version: string }>; mobile?: boolean };
-    deviceMemory?: number;
-  };
-  const brands = nav.userAgentData?.brands ?? [];
-  const chromeBrand = brands.find((b) => b.brand === 'Google Chrome');
-  const ua = nav.userAgent;
-  const uaMatch = ua.match(/Chrome\/(\d+)/);
-  const isOtherChromium = /Edg\/|OPR\/|Brave|SamsungBrowser|YaBrowser|Vivaldi/i.test(ua);
-  const isGoogleChrome = chromeBrand
-    ? true
-    : brands.length === 0 && !!uaMatch && !isOtherChromium;
-  const chromeMajor = chromeBrand
-    ? parseInt(chromeBrand.version, 10)
-    : uaMatch
-    ? parseInt(uaMatch[1], 10)
-    : null;
-  return {
-    isGoogleChrome,
-    chromeMajor: Number.isFinite(chromeMajor) ? chromeMajor : null,
-    isMobile: nav.userAgentData?.mobile ?? /Android|iPhone|iPad|Mobile/i.test(ua),
-    hasPromptApi: getChromeLanguageModel() !== null,
-    cpuCores: nav.hardwareConcurrency || null,
-    deviceMemoryGb: typeof nav.deviceMemory === 'number' ? nav.deviceMemory : null,
-  };
+export async function getNanoCapabilitySnapshot(): Promise<NanoCapabilitySnapshot> {
+  return detectNanoCapabilities();
 }
 
 export async function downloadChromeNanoModel(
   onProgress: (pct: number) => void
 ): Promise<boolean> {
-  const lm = getChromeLanguageModel();
+  // Never attempt to download or install Gemini Nano on mobile or unsupported browsers.
+  const snapshot = await detectNanoCapabilities();
+  if (!snapshot.platform.isChromeDesktop || !snapshot.canDownloadOnDevice) {
+    return false;
+  }
+
+  const lm = getChromeLanguageModelGlobal();
   if (!lm) return false;
   const session = await lm.create({
     expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
@@ -221,18 +160,30 @@ async function executeHybridInference(params: {
 }): Promise<HybridGenerationOutput> {
   const started = performance.now();
   const bundle = getFirebaseBundle();
+  const platform = detectPlatformEnvironment();
+  const lm = getChromeLanguageModelGlobal();
+  const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
   const effectiveMode: HybridInferenceMode = !params.allowCloud
     ? 'only_on_device'
-    : !navigator.onLine && params.mode !== 'only_in_cloud'
+    : isOffline
     ? 'only_on_device'
+    : platform.isMobile
+    ? 'only_in_cloud'
     : params.mode;
+
+  // Never touch cloud / Firebase AI Logic when offline or when strictly on-device without desktop Prompt API.
+  const canInvokeFirebaseAi =
+    Boolean(bundle.ai) &&
+    !isOffline &&
+    (effectiveMode !== 'only_on_device' || (platform.isChromeDesktop && lm !== null));
 
   let lastError: unknown = null;
 
   // 1. Primary path: Firebase AI Logic SDK (Hybrid Inference)
   // Gemini occasionally answers 429/500/503 ("high demand") for a few seconds; retry those with
   // backoff before surfacing an error. Streams are only retried if no tokens were shown yet.
-  for (let attempt = 0; bundle.ai && attempt <= RETRY_DELAYS_MS.length; attempt++) {
+  for (let attempt = 0; canInvokeFirebaseAi && bundle.ai && attempt <= RETRY_DELAYS_MS.length; attempt++) {
     let streamedAnyToken = false;
     try {
       const isGemini4 = params.cloudModelName.startsWith('gemini-4');
@@ -328,75 +279,78 @@ async function executeHybridInference(params: {
     }
   }
 
-  // 2. Direct Chrome Built-in Gemini Nano path (allows genuine on-device AI even offline / pre-Firebase config)
-  if (effectiveMode !== 'only_in_cloud') {
-    const lm = getChromeLanguageModel();
-    if (lm) {
-      const status = await lm.availability({ expectedOutputs: DEFAULT_EXPECTED_OUTPUTS });
-      if (status === 'available') {
-        const session = await lm.create({
-          expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
-          ...(params.systemInstruction ? { systemPrompt: params.systemInstruction } : {}),
-        });
-        try {
-          if (params.onTokenChunk && typeof session.promptStreaming === 'function') {
-            let accumulated = '';
-            let ttftMs = 0;
-            for await (const chunk of session.promptStreaming(params.prompt)) {
-              if (!ttftMs) ttftMs = Math.round(performance.now() - started);
-              // Chrome Prompt API streaming yields either incremental chunks or cumulative text depending on build
-              accumulated = chunk.startsWith(accumulated) ? chunk : accumulated + chunk;
-              params.onTokenChunk(accumulated);
-            }
-            const totalMs = Math.round(performance.now() - started);
-            return {
-              text: accumulated,
-              source: 'ON_DEVICE',
-              modelLabel: 'Gemini Nano (Chrome Built-in)',
-              latencyMs: totalMs,
-              ttftMs: ttftMs || totalMs,
-            };
+  // 2. Direct Chrome Built-in Gemini Nano path (desktop Chrome only; allows genuine on-device AI even offline)
+  if (effectiveMode !== 'only_in_cloud' && platform.isChromeDesktop && lm) {
+    let status: string = 'unavailable';
+    try {
+      status = await lm.availability({ expectedOutputs: DEFAULT_EXPECTED_OUTPUTS });
+    } catch {
+      status = 'unavailable';
+    }
+    if (status === 'available') {
+      const session = await lm.create({
+        expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
+        ...(params.systemInstruction ? { systemPrompt: params.systemInstruction } : {}),
+      });
+      try {
+        if (params.onTokenChunk && typeof session.promptStreaming === 'function') {
+          let accumulated = '';
+          let ttftMs = 0;
+          for await (const chunk of session.promptStreaming(params.prompt)) {
+            if (!ttftMs) ttftMs = Math.round(performance.now() - started);
+            // Chrome Prompt API streaming yields either incremental chunks or cumulative text depending on build
+            accumulated = chunk.startsWith(accumulated) ? chunk : accumulated + chunk;
+            params.onTokenChunk(accumulated);
           }
-
-          const text = await session.prompt(params.prompt);
           const totalMs = Math.round(performance.now() - started);
           return {
-            text,
+            text: accumulated,
             source: 'ON_DEVICE',
             modelLabel: 'Gemini Nano (Chrome Built-in)',
             latencyMs: totalMs,
-            ttftMs: totalMs,
+            ttftMs: ttftMs || totalMs,
           };
-        } finally {
-          session.destroy?.();
         }
+
+        const text = await session.prompt(params.prompt);
+        const totalMs = Math.round(performance.now() - started);
+        return {
+          text,
+          source: 'ON_DEVICE',
+          modelLabel: 'Gemini Nano (Chrome Built-in)',
+          latencyMs: totalMs,
+          ttftMs: totalMs,
+        };
+      } finally {
+        session.destroy?.();
       }
     }
   }
 
-  // No silent fake fallback: tell the user/judge exactly which real runtime needs activation
+  // No silent fake fallback: return a clear, platform-appropriate message without raw capability dumps.
   if (!params.allowCloud) {
     throw new AIUnavailableError(
-      'This task is locked to on-device inference (air-gap or PII discovery), but Gemini Nano is not available in this browser yet — so nothing was sent anywhere. Use Chrome with built-in AI and click "Download Gemini Nano" to run it fully offline.',
+      'On-device AI is currently unavailable in this browser, so nothing was sent to the cloud. Allow sanitized cloud fallback to continue.',
       'NANO_REQUIRED'
     );
   }
-  if (!navigator.onLine) {
+  if (isOffline) {
     throw new AIUnavailableError(
-      'You are offline and Chrome Gemini Nano is not downloaded yet. Reconnect briefly and click "Download Gemini Nano" for offline AI.',
+      'You are offline and on-device AI is currently unavailable in this browser. Reconnect to use sanitized cloud AI.',
       'OFFLINE_NO_NANO'
     );
   }
   if (lastError) {
-    throw new AIUnavailableError(
-      `Firebase AI Logic request failed: ${
-        lastError instanceof Error ? lastError.message : String(lastError)
-      }`,
-      'PROVIDER_ERROR'
-    );
+    const rawMsg = lastError instanceof Error ? lastError.message : String(lastError);
+    const friendlyMsg = isTransientProviderError(lastError)
+      ? 'Cloud AI is temporarily busy. Please try again in a few seconds.'
+      : shouldExposeDeveloperDiagnostics()
+      ? `Cloud AI request failed: ${rawMsg}`
+      : 'Cloud AI could not complete this request right now. Please check your connection and try again.';
+    throw new AIUnavailableError(friendlyMsg, 'PROVIDER_ERROR');
   }
   throw new AIUnavailableError(
-    'No live AI engine active yet. Click "Download Gemini Nano" for local on-device AI, or click "Firebase Setup" to connect your Firebase AI Logic project for Cloud Gemini.',
+    'Cloud AI is not connected yet. Open Firebase Setup to connect your project for sanitized cloud inference.',
     'NO_ENGINE'
   );
 }

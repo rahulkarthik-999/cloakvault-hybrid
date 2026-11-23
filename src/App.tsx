@@ -32,7 +32,7 @@ import {
   subscribeToAuth,
 } from './lib/firebaseClient';
 import {
-  checkChromeNanoAvailability,
+  getNanoCapabilitySnapshot,
   discoverContextualPiiOnDevice,
   downloadChromeNanoModel,
   AIUnavailableError,
@@ -40,6 +40,11 @@ import {
   runHybridTriage,
   streamHybridChatTurn,
 } from './lib/hybridAiService';
+import {
+  detectPlatformEnvironment,
+  getChromeLanguageModelGlobal,
+  shouldExposeDeveloperDiagnostics,
+} from './lib/nanoPlatform';
 import { logTelemetryToFirestore, syncSanitizedVaultToFirestore } from './lib/firestoreVault';
 import { HeaderBar } from './components/HeaderBar';
 import { VaultSidebar } from './components/VaultSidebar';
@@ -125,6 +130,14 @@ export default function App() {
     authProvider: null,
     chromeNanoStatus: 'unsupported',
     chromeNanoDownloadProgress: null,
+    nanoCapability: {
+      platform: detectPlatformEnvironment(),
+      hasPromptApi: getChromeLanguageModelGlobal() !== null,
+      modelAvailability: 'unsupported',
+      canUseOnDevice: false,
+      canDownloadOnDevice: false,
+      shouldExposeDiagnostics: shouldExposeDeveloperDiagnostics(),
+    },
   });
 
   const activeVault = vaults.find((v) => v.id === activeVaultId) ?? vaults[0];
@@ -189,22 +202,34 @@ export default function App() {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
-    checkChromeNanoAvailability().then((status) => {
-      setCapabilities((c) => ({ ...c, chromeNanoStatus: status }));
-    });
-
-    const nanoPoller = window.setInterval(() => {
-      checkChromeNanoAvailability().then((status) => {
+    const syncNanoSnapshot = () => {
+      void getNanoCapabilitySnapshot().then((snapshot) => {
         setCapabilities((c) => {
-          if (c.chromeNanoStatus === status) return c;
+          if (
+            c.chromeNanoStatus === snapshot.modelAvailability &&
+            c.nanoCapability.canUseOnDevice === snapshot.canUseOnDevice &&
+            c.nanoCapability.canDownloadOnDevice === snapshot.canDownloadOnDevice &&
+            c.nanoCapability.hasPromptApi === snapshot.hasPromptApi
+          ) {
+            return c;
+          }
           return {
             ...c,
-            chromeNanoStatus: status,
-            chromeNanoDownloadProgress: status === 'available' ? null : c.chromeNanoDownloadProgress,
+            chromeNanoStatus: snapshot.modelAvailability,
+            nanoCapability: snapshot,
+            chromeNanoDownloadProgress:
+              snapshot.modelAvailability === 'available' ? null : c.chromeNanoDownloadProgress,
           };
         });
       });
-    }, 3000);
+    };
+
+    syncNanoSnapshot();
+    const initialPlatform = detectPlatformEnvironment();
+    const nanoPoller =
+      initialPlatform.isChromeDesktop && getChromeLanguageModelGlobal() !== null
+        ? window.setInterval(syncNanoSnapshot, 3000)
+        : null;
 
     loadRemotePolicy().then((policy) => {
       setRemotePolicy(policy);
@@ -229,7 +254,7 @@ export default function App() {
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
-      window.clearInterval(nanoPoller);
+      if (nanoPoller !== null) window.clearInterval(nanoPoller);
       unsubAuth();
     };
   }, []);
@@ -264,6 +289,9 @@ export default function App() {
   };
 
   const handleDownloadNano = async () => {
+    // Never attempt to download or install Gemini Nano on mobile or unsupported browsers.
+    if (!capabilities.nanoCapability.canDownloadOnDevice) return;
+
     setAiError(null);
     setCapabilities((c) => ({
       ...c,
@@ -274,28 +302,38 @@ export default function App() {
       await downloadChromeNanoModel((pct) => {
         setCapabilities((c) => ({ ...c, chromeNanoDownloadProgress: pct }));
       });
-      const status = await checkChromeNanoAvailability();
+      const snapshot = await getNanoCapabilitySnapshot();
       setCapabilities((c) => ({
         ...c,
-        chromeNanoStatus: status,
+        chromeNanoStatus: snapshot.modelAvailability,
+        nanoCapability: snapshot,
         chromeNanoDownloadProgress: null,
       }));
     } catch (err) {
+      const detail =
+        capabilities.nanoCapability.shouldExposeDiagnostics && err instanceof Error
+          ? ` (${err.message})`
+          : '';
       setAiError(
-        `Chrome Gemini Nano download failed: ${err instanceof Error ? err.message : String(err)}`
+        `On-device AI could not be installed right now${detail}. Sanitized Cloud AI remains active.`
       );
-      const status = await checkChromeNanoAvailability();
+      const snapshot = await getNanoCapabilitySnapshot();
       setCapabilities((c) => ({
         ...c,
-        chromeNanoStatus: status,
+        chromeNanoStatus: snapshot.modelAvailability,
+        nanoCapability: snapshot,
         chromeNanoDownloadProgress: null,
       }));
     }
   };
 
   const handleRecheckNano = async () => {
-    const status = await checkChromeNanoAvailability();
-    setCapabilities((c) => ({ ...c, chromeNanoStatus: status }));
+    const snapshot = await getNanoCapabilitySnapshot();
+    setCapabilities((c) => ({
+      ...c,
+      chromeNanoStatus: snapshot.modelAvailability,
+      nanoCapability: snapshot,
+    }));
   };
 
   const handleLoadSample = (sampleId: string) => {
@@ -672,7 +710,6 @@ export default function App() {
           setShieldNotice(null);
         }}
         onDownloadNano={handleDownloadNano}
-        onRecheckNano={handleRecheckNano}
         onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
         onOpenAuthModal={openAuthModal}
         onExportRedactedTxt={() => exportRedactedDocument(activeVault)}
@@ -774,6 +811,7 @@ export default function App() {
         projectId={bundle.projectId}
         authDomain={bundle.authDomain}
         onOpenAuthModal={openAuthModal}
+        onRecheckNano={handleRecheckNano}
       />
 
       <AuthModal

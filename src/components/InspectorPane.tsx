@@ -177,7 +177,7 @@ export function InspectorPane({
   }, [busyAction]);
 
   const hasAnyLiveEngine =
-    capabilities.firebaseConfigured || capabilities.chromeNanoStatus === 'available';
+    capabilities.firebaseConfigured || capabilities.nanoCapability.canUseOnDevice;
 
   const activeEntities = vault.entities.filter((e) => e.enabled).length;
 
@@ -243,19 +243,19 @@ export function InspectorPane({
             <div className="flex-1">
               <p className="text-[12.5px] font-semibold">Held on-device — 0 bytes sent</p>
               <p className="mt-0.5 leading-snug text-emerald-900/80">
-                {airGapMode ? 'Air-gap mode' : 'This task'} locks inference to this device. Gemini
-                Nano isn’t installed in this browser, so CloakVault stopped instead of falling back
-                to the cloud.
+                {airGapMode ? 'Air-gap mode' : 'This task'} requires on-device AI, which is
+                currently unavailable in this browser. Nothing was sent to the cloud.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {capabilities.chromeNanoStatus === 'downloadable' && (
-                  <button
-                    onClick={onDownloadNano}
-                    className="rounded-full bg-emerald-700 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-800"
-                  >
-                    Download Gemini Nano
-                  </button>
-                )}
+                {capabilities.nanoCapability.canDownloadOnDevice &&
+                  capabilities.chromeNanoStatus === 'downloadable' && (
+                    <button
+                      onClick={onDownloadNano}
+                      className="rounded-full bg-emerald-700 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-800"
+                    >
+                      Enable on-device AI
+                    </button>
+                  )}
                 {airGapMode && (
                   <button
                     onClick={onDisableAirGap}
@@ -283,14 +283,15 @@ export function InspectorPane({
             <div className="flex-1">
               <p className="leading-snug">{aiError}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {capabilities.chromeNanoStatus === 'downloadable' && (
-                  <button
-                    onClick={onDownloadNano}
-                    className="rounded bg-[#0E1015] px-2 py-1 text-[11px] font-medium text-white"
-                  >
-                    Download Gemini Nano
-                  </button>
-                )}
+                {capabilities.nanoCapability.canDownloadOnDevice &&
+                  capabilities.chromeNanoStatus === 'downloadable' && (
+                    <button
+                      onClick={onDownloadNano}
+                      className="rounded bg-[#0E1015] px-2 py-1 text-[11px] font-medium text-white"
+                    >
+                      Enable on-device AI
+                    </button>
+                  )}
                 {!capabilities.firebaseConfigured && (
                   <button
                     onClick={onOpenFirebaseModal}
@@ -353,18 +354,19 @@ export function InspectorPane({
                 engines to audit documents:
               </p>
               <div className="mt-3 space-y-2">
-                {capabilities.chromeNanoStatus === 'downloadable' && (
-                  <button
-                    onClick={onDownloadNano}
-                    className="flex w-full items-center justify-between rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white hover:bg-[#262A35]"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <Download className="h-3.5 w-3.5" />
-                      1. Download Chrome Gemini Nano (Local)
-                    </span>
-                    <span className="font-mono text-[10px] opacity-80">Free · Offline</span>
-                  </button>
-                )}
+                {capabilities.nanoCapability.canDownloadOnDevice &&
+                  capabilities.chromeNanoStatus === 'downloadable' && (
+                    <button
+                      onClick={onDownloadNano}
+                      className="flex w-full items-center justify-between rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white hover:bg-[#262A35]"
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Download className="h-3.5 w-3.5" />
+                        Enable Chrome Gemini Nano (On-Device)
+                      </span>
+                      <span className="font-mono text-[10px] opacity-80">Free · Offline</span>
+                    </button>
+                  )}
                 <button
                   onClick={onOpenFirebaseModal}
                   className="flex w-full items-center justify-between rounded-md border border-[#E5E7EC] bg-white px-3 py-2 text-xs font-medium text-[#0E1015] hover:bg-[#ECEEF2]"
@@ -619,22 +621,42 @@ export function InspectorPane({
       {/* TAB 2: LOCAL PII ENTITIES */}
       {tab === 'entities' && (
         <div className="flex flex-1 flex-col overflow-y-auto p-4">
-          <button
-            onClick={onRunNanoPiiScan}
-            disabled={busyAction !== null}
-            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#262A35] disabled:opacity-50"
-          >
-            {busyAction === 'pii' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Cpu className="h-3.5 w-3.5" />
-            )}
-            <span>
-              {busyAction === 'pii'
-                ? 'Scanning on-device with Gemini Nano…'
-                : 'Discover Contextual PII (On-Device Nano)'}
-            </span>
-          </button>
+          {capabilities.nanoCapability.canUseOnDevice ? (
+            <button
+              onClick={onRunNanoPiiScan}
+              disabled={busyAction !== null}
+              className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#262A35] disabled:opacity-50"
+            >
+              {busyAction === 'pii' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Cpu className="h-3.5 w-3.5" />
+              )}
+              <span>
+                {busyAction === 'pii'
+                  ? 'Scanning on-device with Gemini Nano…'
+                  : 'Discover Contextual PII (On-Device Nano)'}
+              </span>
+            </button>
+          ) : capabilities.nanoCapability.canDownloadOnDevice &&
+            capabilities.chromeNanoStatus === 'downloadable' ? (
+            <button
+              onClick={onDownloadNano}
+              disabled={busyAction !== null}
+              className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#262A35] disabled:opacity-50"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Enable on-device AI for contextual PII</span>
+            </button>
+          ) : (
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-3 py-2 text-[11.5px] text-[#4A5061]">
+              <ShieldCheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />
+              <span>
+                Local deterministic PII shielding is active. On-device AI entity discovery is
+                currently unavailable in this browser.
+              </span>
+            </div>
+          )}
 
           <form onSubmit={handleAddEntity} className="mb-3 flex gap-1.5">
             <input

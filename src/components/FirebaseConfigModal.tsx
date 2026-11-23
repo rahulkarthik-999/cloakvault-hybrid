@@ -19,6 +19,7 @@ import {
   signOutAccount,
 } from '../lib/firebaseClient';
 import { GoogleLogo, type AuthModalMode } from './AuthModal';
+import { DeveloperNanoDiagnostics } from './DeveloperNanoDiagnostics';
 import type { RemotePolicyConfig, SystemCapabilities } from '../types/vault';
 
 interface FirebaseConfigModalProps {
@@ -29,6 +30,7 @@ interface FirebaseConfigModalProps {
   projectId: string | null;
   authDomain?: string | null;
   onOpenAuthModal?: (mode: AuthModalMode) => void;
+  onRecheckNano?: () => Promise<void>;
 }
 
 export function FirebaseConfigModal({
@@ -39,6 +41,7 @@ export function FirebaseConfigModal({
   projectId,
   authDomain,
   onOpenAuthModal,
+  onRecheckNano,
 }: FirebaseConfigModalProps) {
   const [configJson, setConfigJson] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -274,6 +277,13 @@ export function FirebaseConfigModal({
             </button>
           </div>
         </div>
+
+        {onRecheckNano && (
+          <DeveloperNanoDiagnostics
+            snapshot={capabilities.nanoCapability}
+            onRecheck={onRecheckNano}
+          />
+        )}
       </div>
     </div>
   );

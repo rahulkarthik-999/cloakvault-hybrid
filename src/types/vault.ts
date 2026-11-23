@@ -1,3 +1,5 @@
+import type { NanoCapabilitySnapshot } from '../lib/nanoPlatform';
+
 export type DocumentCategory = 'legal' | 'financial' | 'medical' | 'general';
 
 export type PiiType =
@@ -133,4 +135,5 @@ export interface SystemCapabilities {
     | 'unavailable'
     | 'unsupported';
   chromeNanoDownloadProgress: number | null;
+  nanoCapability: NanoCapabilitySnapshot;
 }

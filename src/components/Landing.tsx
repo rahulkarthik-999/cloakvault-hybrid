@@ -28,6 +28,7 @@ import {
 import { BrandMark, Wordmark } from './BrandMark';
 import { AuthModal, type AuthModalMode } from './AuthModal';
 import { getAuthProviderKind, getFirebaseBundle, subscribeToAuth } from '../lib/firebaseClient';
+import { detectPlatformEnvironment, shouldExposeDeveloperDiagnostics } from '../lib/nanoPlatform';
 import type { SystemCapabilities } from '../types/vault';
 
 const REPO_URL = 'https://github.com/rahulkarthik-999/cloakvault-hybrid';
@@ -353,6 +354,14 @@ export function Landing() {
     authProvider: null,
     chromeNanoStatus: 'unsupported',
     chromeNanoDownloadProgress: null,
+    nanoCapability: {
+      platform: detectPlatformEnvironment(),
+      hasPromptApi: false,
+      modelAvailability: 'unsupported',
+      canUseOnDevice: false,
+      canDownloadOnDevice: false,
+      shouldExposeDiagnostics: shouldExposeDeveloperDiagnostics(),
+    },
   });
 
   useEffect(() => {

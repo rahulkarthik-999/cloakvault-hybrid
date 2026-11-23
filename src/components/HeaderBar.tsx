@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Cpu,
-  Download,
   ChevronDown,
   Wifi,
   WifiOff,
-  Loader2,
   SlidersHorizontal,
   FileDown,
   FileCode2,
@@ -16,7 +13,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { Wordmark } from './BrandMark';
-import { NanoSetupPopover } from './NanoSetupPopover';
+import { NanoStatusControl } from './NanoStatusControl';
 import type { AuthModalMode } from './AuthModal';
 import type { RemotePolicyConfig, SystemCapabilities, VaultDocument } from '../types/vault';
 
@@ -28,7 +25,6 @@ interface HeaderBarProps {
   airGapMode: boolean;
   onToggleAirGap: () => void;
   onDownloadNano: () => void;
-  onRecheckNano: () => Promise<void>;
   onOpenFirebaseModal: () => void;
   onOpenAuthModal: (mode: AuthModalMode) => void;
   onExportRedactedTxt: () => void;
@@ -50,7 +46,6 @@ export function HeaderBar({
   airGapMode,
   onToggleAirGap,
   onDownloadNano,
-  onRecheckNano,
   onOpenFirebaseModal,
   onOpenAuthModal,
   onExportRedactedTxt,
@@ -98,7 +93,7 @@ export function HeaderBar({
           value={activeVault.title}
           onChange={(e) => onUpdateTitle(e.target.value)}
           aria-label="Document title"
-          className="hidden min-w-0 max-w-[160px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none sm:block xl:max-w-[240px] 2xl:max-w-[340px]"
+          className="hidden min-w-0 max-w-[130px] truncate rounded px-1.5 py-0.5 text-[13px] font-medium text-[#0E1015] hover:bg-[#F3F4F7] focus:bg-[#F3F4F7] focus:outline-none sm:block xl:max-w-[220px] 2xl:max-w-[340px]"
         />
 
         <span className="hidden shrink-0 rounded border border-[#E5E7EC] bg-[#F3F4F7] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-[#4A5061] 2xl:inline-block">
@@ -107,46 +102,19 @@ export function HeaderBar({
       </div>
 
       {/* Right: Real Runtime Controls (scrolls sideways on phones) */}
-      <div className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:w-auto lg:shrink-0 lg:overflow-visible lg:px-0 [&>*]:shrink-0">
-        {/* On-Device Gemini Nano Control */}
-        {capabilities.chromeNanoStatus === 'available' ? (
-          <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11.5px] font-medium text-emerald-800">
-            <Cpu className="h-3.5 w-3.5" />
-            <span>Gemini Nano · on-device</span>
-            <span className="h-1.5 w-1.5 animate-pulse-ring rounded-full bg-emerald-500" />
-          </div>
-        ) : capabilities.chromeNanoStatus === 'downloading' ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11.5px] font-medium text-amber-800">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span className="font-mono">
-              Downloading Nano {capabilities.chromeNanoDownloadProgress ?? 0}%
-            </span>
-          </div>
-        ) : capabilities.chromeNanoStatus === 'downloadable' ? (
-          <button
-            onClick={onDownloadNano}
-            className="flex items-center gap-1.5 rounded-md border border-[#0E1015] bg-[#0E1015] px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-[#262A35]"
-          >
-            <Download className="h-3 w-3" />
-            <span>Download Gemini Nano</span>
-          </button>
-        ) : (
-          <NanoSetupPopover
-            status={capabilities.chromeNanoStatus}
-            onDownloadNano={onDownloadNano}
-            onRecheckNano={onRecheckNano}
-          />
-        )}
+      <div className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:w-auto lg:shrink-0 lg:overflow-visible lg:px-0 xl:gap-2 [&>*]:shrink-0">
+        {/* Platform-aware AI Runtime Status Control */}
+        <NanoStatusControl capabilities={capabilities} onDownloadNano={onDownloadNano} />
 
         {/* Network / Air-Gap Segmented Toggle */}
         <button
           onClick={onToggleAirGap}
-          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11.5px] font-medium transition ${
+          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition ${
             isOfflineEffective
               ? 'border-amber-300 bg-amber-50 text-amber-900'
               : 'border-[#E5E7EC] bg-white text-[#3A3F4D] hover:bg-[#F3F4F7]'
           }`}
-          title="Simulate air-gapped / offline execution to test automatic on-device hybrid fallback"
+          title="Simulate air-gapped / offline execution to test on-device execution"
         >
           {isOfflineEffective ? (
             <>
@@ -165,7 +133,7 @@ export function HeaderBar({
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setExportOpen((o) => !o)}
-            className="flex items-center gap-1 rounded-full border border-[#E5E7EC] bg-white px-3 py-1 text-[11.5px] font-medium text-[#0E1015] transition hover:bg-[#F3F4F7]"
+            className="flex items-center gap-1 rounded-full border border-[#E5E7EC] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#0E1015] transition hover:bg-[#F3F4F7]"
           >
             <FileDown className="h-3.5 w-3.5 text-[#4A5061]" />
             <span>Export</span>
