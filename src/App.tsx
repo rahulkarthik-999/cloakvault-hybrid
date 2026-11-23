@@ -16,6 +16,14 @@ import {
   sha256Hex,
 } from './lib/cryptoProof';
 import {
+  exportAuditDocx,
+  exportAuditPdf,
+  exportEntitiesCsv,
+  exportRedactedDocx,
+  exportRedactedHtml,
+  exportRedactedPdf,
+} from './lib/documentExport';
+import {
   DEFAULT_REMOTE_POLICY,
   getFirebaseBundle,
   loadRemotePolicy,
@@ -639,8 +647,14 @@ export default function App() {
         }}
         onDownloadNano={handleDownloadNano}
         onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
-        onExportRedacted={() => exportRedactedDocument(activeVault)}
+        onExportRedactedTxt={() => exportRedactedDocument(activeVault)}
+        onExportRedactedPdf={() => void exportRedactedPdf(activeVault)}
+        onExportRedactedDocx={() => exportRedactedDocx(activeVault)}
+        onExportRedactedHtml={() => exportRedactedHtml(activeVault)}
+        onExportAuditPdf={() => exportAuditPdf(activeVault, true)}
+        onExportAuditDocx={() => exportAuditDocx(activeVault, true)}
         onExportAuditMd={() => exportAuditMarkdown(activeVault, true)}
+        onExportEntitiesCsv={() => exportEntitiesCsv(activeVault)}
         onExportCertificate={() => void exportZeroLeakCertificate(activeVault)}
       />
 

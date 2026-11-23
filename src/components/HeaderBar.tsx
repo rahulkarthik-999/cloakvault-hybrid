@@ -10,6 +10,9 @@ import {
   FileDown,
   FileCode2,
   FileCheck2,
+  FileText,
+  FileSpreadsheet,
+  Globe,
 } from 'lucide-react';
 import { Wordmark } from './BrandMark';
 import type { RemotePolicyConfig, SystemCapabilities, VaultDocument } from '../types/vault';
@@ -23,8 +26,14 @@ interface HeaderBarProps {
   onToggleAirGap: () => void;
   onDownloadNano: () => void;
   onOpenFirebaseModal: () => void;
-  onExportRedacted: () => void;
+  onExportRedactedTxt: () => void;
+  onExportRedactedPdf: () => void;
+  onExportRedactedDocx: () => void;
+  onExportRedactedHtml: () => void;
+  onExportAuditPdf: () => void;
+  onExportAuditDocx: () => void;
   onExportAuditMd: () => void;
+  onExportEntitiesCsv: () => void;
   onExportCertificate: () => void;
 }
 
@@ -37,8 +46,14 @@ export function HeaderBar({
   onToggleAirGap,
   onDownloadNano,
   onOpenFirebaseModal,
-  onExportRedacted,
+  onExportRedactedTxt,
+  onExportRedactedPdf,
+  onExportRedactedDocx,
+  onExportRedactedHtml,
+  onExportAuditPdf,
+  onExportAuditDocx,
   onExportAuditMd,
+  onExportEntitiesCsv,
   onExportCertificate,
 }: HeaderBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -153,47 +168,120 @@ export function HeaderBar({
           </button>
 
           {exportOpen && (
-            <div className="fixed inset-x-4 top-28 z-40 rounded-lg border border-[#E5E7EC] bg-white p-1 shadow-lg lg:absolute lg:inset-x-auto lg:right-0 lg:top-auto lg:mt-1.5 lg:w-60">
-              <button
-                onClick={() => {
-                  onExportRedacted();
-                  setExportOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
-              >
-                <FileCheck2 className="h-3.5 w-3.5 text-emerald-700" />
-                <div>
-                  <div className="font-medium">Redacted Document (.txt)</div>
-                  <div className="text-[10.5px] text-[#697083]">Safe to email externally</div>
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  onExportAuditMd();
-                  setExportOpen(false);
-                }}
-                disabled={!activeVault.auditReport}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <FileDown className="h-3.5 w-3.5 text-indigo-700" />
-                <div>
-                  <div className="font-medium">Redlined Audit Report (.md)</div>
-                  <div className="text-[10.5px] text-[#697083]">Findings &amp; counter-clauses</div>
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  onExportCertificate();
-                  setExportOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
-              >
-                <FileCode2 className="h-3.5 w-3.5 text-[#4A5061]" />
-                <div>
-                  <div className="font-medium">Zero-Leak SHA-256 Proof (.json)</div>
-                  <div className="text-[10.5px] text-[#697083]">Cryptographic compliance log</div>
-                </div>
-              </button>
+            <div className="fixed inset-x-4 top-28 z-40 rounded-xl border border-[#E5E7EC] bg-white p-2 shadow-xl lg:absolute lg:inset-x-auto lg:right-0 lg:top-auto lg:mt-1.5 lg:w-72">
+              {/* Section 1: Redacted Document (0 B raw PII) */}
+              <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[#697083]">
+                Redacted Document (0 B PII)
+              </div>
+              <div className="grid grid-cols-2 gap-1 px-1 pb-2">
+                <button
+                  onClick={() => {
+                    onExportRedactedPdf();
+                    setExportOpen(false);
+                  }}
+                  className="flex items-center gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2.5 py-2 text-left text-xs font-medium text-[#0E1015] transition hover:border-emerald-300 hover:bg-emerald-50/60"
+                >
+                  <FileCheck2 className="h-3.5 w-3.5 shrink-0 text-rose-600" />
+                  <span>PDF (.pdf)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportRedactedDocx();
+                    setExportOpen(false);
+                  }}
+                  className="flex items-center gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2.5 py-2 text-left text-xs font-medium text-[#0E1015] transition hover:border-emerald-300 hover:bg-emerald-50/60"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-blue-700" />
+                  <span>Word (.docx)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportRedactedTxt();
+                    setExportOpen(false);
+                  }}
+                  className="flex items-center gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2.5 py-2 text-left text-xs font-medium text-[#0E1015] transition hover:border-emerald-300 hover:bg-emerald-50/60"
+                >
+                  <FileDown className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                  <span>Text (.txt)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportRedactedHtml();
+                    setExportOpen(false);
+                  }}
+                  className="flex items-center gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2.5 py-2 text-left text-xs font-medium text-[#0E1015] transition hover:border-emerald-300 hover:bg-emerald-50/60"
+                >
+                  <Globe className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <span>HTML (.html)</span>
+                </button>
+              </div>
+
+              {/* Section 2: Redlined Risk Audit */}
+              <div className="border-t border-[#EEF0F4] px-2 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#697083]">
+                Redlined Risk Audit Report
+              </div>
+              <div className="grid grid-cols-3 gap-1 px-1 pb-2">
+                <button
+                  onClick={() => {
+                    onExportAuditPdf();
+                    setExportOpen(false);
+                  }}
+                  disabled={!activeVault.auditReport}
+                  className="flex items-center justify-center gap-1 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2 py-1.5 text-xs font-medium text-[#0E1015] transition hover:border-indigo-300 hover:bg-indigo-50/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span>.pdf</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportAuditDocx();
+                    setExportOpen(false);
+                  }}
+                  disabled={!activeVault.auditReport}
+                  className="flex items-center justify-center gap-1 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2 py-1.5 text-xs font-medium text-[#0E1015] transition hover:border-indigo-300 hover:bg-indigo-50/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span>.docx</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportAuditMd();
+                    setExportOpen(false);
+                  }}
+                  disabled={!activeVault.auditReport}
+                  className="flex items-center justify-center gap-1 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-2 py-1.5 text-xs font-medium text-[#0E1015] transition hover:border-indigo-300 hover:bg-indigo-50/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span>.md</span>
+                </button>
+              </div>
+
+              {/* Section 3: Compliance & Spreadsheets */}
+              <div className="border-t border-[#EEF0F4] pt-1.5">
+                <button
+                  onClick={() => {
+                    onExportEntitiesCsv();
+                    setExportOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" />
+                  <div>
+                    <div className="font-medium">Entities &amp; Findings (.csv)</div>
+                    <div className="text-[10.5px] text-[#697083]">Excel / Sheets compliance log</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportCertificate();
+                    setExportOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-[#0E1015] hover:bg-[#F3F4F7]"
+                >
+                  <FileCode2 className="h-3.5 w-3.5 text-[#4A5061]" />
+                  <div>
+                    <div className="font-medium">Zero-Leak SHA-256 Proof (.json)</div>
+                    <div className="text-[10.5px] text-[#697083]">Cryptographic verification receipt</div>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
         </div>

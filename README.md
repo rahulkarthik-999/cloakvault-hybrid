@@ -107,7 +107,7 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 - **Streaming Q&A** with on-device / cloud selector, TTFT and latency per answer
 - **Outbound payload inspector** + SHA-256 receipts; **Strict PII Shield** blocks escalation if anything is exposed
 - **Air-gap mode** for fully on-device operation
-- **Exports**: redacted `.txt`, redlined audit `.md`, JSON zero-leak certificate
+- **Exports (100% client-side, offline-safe)**: redacted `.pdf`, `.docx`, `.txt`, and `.html`; redlined audit `.pdf`, `.docx`, and `.md`; shielded entities & findings `.csv`; JSON zero-leak SHA-256 certificate
 - **Works on phones & tablets (Android / iOS)**: mobile tab layout, touch select-to-redact, installable **PWA** with an offline app shell (no AI calls or documents are cached)
 - **Chrome side-panel extension** (`chrome-extension/`) — scan any web page's terms locally, hand off to the workbench
 - Three realistic sample case files: freelance MSA/NDA, SaaS ledger, itemized hospital bill + EOB
