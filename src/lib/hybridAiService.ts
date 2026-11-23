@@ -74,6 +74,49 @@ export async function checkChromeNanoAvailability(): Promise<
   }
 }
 
+/** Minimum desktop Chrome version that exposes the Prompt API (LanguageModel) to web pages. */
+export const NANO_MIN_CHROME_VERSION = 148;
+
+export interface NanoDeviceReport {
+  /** Google Chrome specifically — Edge/Brave/Opera don't ship Gemini Nano. */
+  isGoogleChrome: boolean;
+  chromeMajor: number | null;
+  isMobile: boolean;
+  hasPromptApi: boolean;
+  cpuCores: number | null;
+  /** navigator.deviceMemory is capped at 8 by browsers, so it's only a lower bound. */
+  deviceMemoryGb: number | null;
+}
+
+/** Best-effort, read-only look at whether this browser/device can run Chrome's Gemini Nano. */
+export function getNanoDeviceReport(): NanoDeviceReport {
+  const nav = navigator as Navigator & {
+    userAgentData?: { brands?: Array<{ brand: string; version: string }>; mobile?: boolean };
+    deviceMemory?: number;
+  };
+  const brands = nav.userAgentData?.brands ?? [];
+  const chromeBrand = brands.find((b) => b.brand === 'Google Chrome');
+  const ua = nav.userAgent;
+  const uaMatch = ua.match(/Chrome\/(\d+)/);
+  const isOtherChromium = /Edg\/|OPR\/|Brave|SamsungBrowser|YaBrowser|Vivaldi/i.test(ua);
+  const isGoogleChrome = chromeBrand
+    ? true
+    : brands.length === 0 && !!uaMatch && !isOtherChromium;
+  const chromeMajor = chromeBrand
+    ? parseInt(chromeBrand.version, 10)
+    : uaMatch
+    ? parseInt(uaMatch[1], 10)
+    : null;
+  return {
+    isGoogleChrome,
+    chromeMajor: Number.isFinite(chromeMajor) ? chromeMajor : null,
+    isMobile: nav.userAgentData?.mobile ?? /Android|iPhone|iPad|Mobile/i.test(ua),
+    hasPromptApi: getChromeLanguageModel() !== null,
+    cpuCores: nav.hardwareConcurrency || null,
+    deviceMemoryGb: typeof nav.deviceMemory === 'number' ? nav.deviceMemory : null,
+  };
+}
+
 export async function downloadChromeNanoModel(
   onProgress: (pct: number) => void
 ): Promise<boolean> {

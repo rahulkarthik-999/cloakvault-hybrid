@@ -10,6 +10,10 @@ import {
   signInAnonymously,
   GoogleAuthProvider,
   signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   signOut,
   onAuthStateChanged,
   type Auth,
@@ -46,7 +50,26 @@ export interface FirebaseBundle {
   db: Firestore | null;
   remoteConfig: RemoteConfig | null;
   projectId: string | null;
+  authDomain: string | null;
   initError: string | null;
+}
+
+const CUSTOM_AUTH_HOSTS = new Set(['cloakvault.buzz', 'www.cloakvault.buzz']);
+
+export function resolveAuthDomain(projectId: string, fallbackAuthDomain?: string): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    // Stay on the custom domain so Google OAuth & Firebase Auth popups use
+    // https://cloakvault.buzz/__/auth/handler instead of redirecting through web.app / firebaseapp.com.
+    if (CUSTOM_AUTH_HOSTS.has(host)) {
+      return 'cloakvault.buzz';
+    }
+  }
+  return (
+    fallbackAuthDomain?.trim() ||
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ||
+    `${projectId}.firebaseapp.com`
+  );
 }
 
 function readEnvFirebaseConfig(): FirebaseOptions | null {
@@ -57,7 +80,7 @@ function readEnvFirebaseConfig(): FirebaseOptions | null {
   if (apiKey && projectId && appId) {
     return {
       apiKey,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() || `${projectId}.firebaseapp.com`,
+      authDomain: resolveAuthDomain(projectId),
       projectId,
       storageBucket:
         import.meta.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() || `${projectId}.firebasestorage.app`,
@@ -72,7 +95,10 @@ function readEnvFirebaseConfig(): FirebaseOptions | null {
     if (saved) {
       const parsed = JSON.parse(saved) as FirebaseOptions;
       if (parsed.apiKey && parsed.projectId && parsed.appId) {
-        return parsed;
+        return {
+          ...parsed,
+          authDomain: resolveAuthDomain(parsed.projectId, parsed.authDomain),
+        };
       }
     }
   } catch {
@@ -106,6 +132,7 @@ export function getFirebaseBundle(): FirebaseBundle {
       db: null,
       remoteConfig: null,
       projectId: null,
+      authDomain: null,
       initError: null,
     };
     return cachedBundle;
@@ -114,7 +141,7 @@ export function getFirebaseBundle(): FirebaseBundle {
   try {
     const app = getApps().length > 0 ? getApps()[0] : initializeApp(options);
 
-    // Initialize App Check (required by Firebase AI Logic; real reCAPTCHA v3 in prod, debug token only in local dev)
+    // Initialize App Check (required by Firebase AI Logic; real reCAPTCHA Enterprise in prod, debug token only in local dev)
     let appCheck: AppCheck | null = null;
     try {
       const debugSetting = import.meta.env.DEV
@@ -166,6 +193,7 @@ export function getFirebaseBundle(): FirebaseBundle {
       db,
       remoteConfig,
       projectId: options.projectId ?? null,
+      authDomain: options.authDomain ?? null,
       initError: null,
     };
     return cachedBundle;
@@ -179,6 +207,7 @@ export function getFirebaseBundle(): FirebaseBundle {
       db: null,
       remoteConfig: null,
       projectId: null,
+      authDomain: null,
       initError: err instanceof Error ? err.message : String(err),
     };
     return cachedBundle;
@@ -237,6 +266,53 @@ export function subscribeToAuth(callback: (user: User | null) => void): () => vo
   return onAuthStateChanged(bundle.auth, callback);
 }
 
+export function getAuthProviderKind(
+  user: User | null
+): 'anonymous' | 'google' | 'password' | null {
+  if (!user) return null;
+  if (user.isAnonymous) return 'anonymous';
+  const ids = user.providerData.map((p) => p.providerId);
+  if (ids.includes('google.com')) return 'google';
+  if (ids.includes('password')) return 'password';
+  return 'password';
+}
+
+export function formatAuthError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as { code?: unknown }).code ?? '')
+      : '';
+
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists. Try signing in instead.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters long.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Invalid email or password. Double-check your credentials or reset your password.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a minute before trying again.';
+    case 'auth/popup-closed-by-user':
+      return 'Google sign-in popup was closed before completing.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign-in popup. Allow popups for this site and try again.';
+    case 'auth/cancelled-popup-request':
+      return 'Another sign-in window is already open.';
+    case 'auth/unauthorized-domain':
+      return `This domain (${typeof window !== 'undefined' ? window.location.hostname : 'unknown'}) is not yet authorized in Firebase Authentication.`;
+    case 'auth/operation-not-allowed':
+      return 'This sign-in method is not enabled in Firebase Authentication.';
+    case 'auth/network-request-failed':
+      return 'Network error — check your internet connection and try again.';
+    default:
+      return err instanceof Error ? err.message : 'Authentication failed. Please try again.';
+  }
+}
+
 export async function signInGuest(): Promise<User | null> {
   const bundle = getFirebaseBundle();
   if (!bundle.auth) return null;
@@ -248,8 +324,39 @@ export async function signInWithGoogleAccount(): Promise<User | null> {
   const bundle = getFirebaseBundle();
   if (!bundle.auth) return null;
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   const cred = await signInWithPopup(bundle.auth, provider);
   return cred.user;
+}
+
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  displayName?: string
+): Promise<User | null> {
+  const bundle = getFirebaseBundle();
+  if (!bundle.auth) return null;
+  const cred = await createUserWithEmailAndPassword(bundle.auth, email.trim(), password);
+  const trimmedName = displayName?.trim();
+  if (trimmedName) {
+    await updateProfile(cred.user, { displayName: trimmedName });
+  }
+  return cred.user;
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<User | null> {
+  const bundle = getFirebaseBundle();
+  if (!bundle.auth) return null;
+  const cred = await signInWithEmailAndPassword(bundle.auth, email.trim(), password);
+  return cred.user;
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  const bundle = getFirebaseBundle();
+  if (!bundle.auth) return;
+  const continueUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/app` : 'https://cloakvault.buzz/app';
+  await sendPasswordResetEmail(bundle.auth, email.trim(), { url: continueUrl });
 }
 
 export async function signOutAccount(): Promise<void> {

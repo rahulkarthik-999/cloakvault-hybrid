@@ -26,6 +26,9 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { BrandMark, Wordmark } from './BrandMark';
+import { AuthModal, type AuthModalMode } from './AuthModal';
+import { getAuthProviderKind, getFirebaseBundle, subscribeToAuth } from '../lib/firebaseClient';
+import type { SystemCapabilities } from '../types/vault';
 
 const REPO_URL = 'https://github.com/rahulkarthik-999/cloakvault-hybrid';
 const DEMO_URL = import.meta.env.VITE_DEMO_VIDEO_URL as string | undefined;
@@ -333,13 +336,51 @@ function TrustBadges() {
 
 export function Landing() {
   const [scrolled, setScrolled] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('signin');
+  const [bundle] = useState(() => getFirebaseBundle());
+  const [authCaps, setAuthCaps] = useState<SystemCapabilities>({
+    online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+    firebaseConfigured: bundle.configured,
+    appCheckInitialized: Boolean(bundle.appCheck),
+    remoteConfigLoaded: false,
+    firestoreConnected: Boolean(bundle.db),
+    authUserUid: null,
+    authIsAnonymous: false,
+    authEmail: null,
+    authDisplayName: null,
+    authPhotoUrl: null,
+    authProvider: null,
+    chromeNanoStatus: 'unsupported',
+    chromeNanoDownloadProgress: null,
+  });
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
+    const unsub = subscribeToAuth((user) => {
+      setAuthCaps((c) => ({
+        ...c,
+        authUserUid: user?.uid ?? null,
+        authIsAnonymous: user?.isAnonymous ?? false,
+        authEmail: user?.email ?? null,
+        authDisplayName: user?.displayName ?? null,
+        authPhotoUrl: user?.photoURL ?? null,
+        authProvider: getAuthProviderKind(user),
+      }));
+    });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      unsub();
+    };
   }, []);
 
   const openApp = () => go('/app');
+  const openAuth = (mode: AuthModalMode) => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+  const isSignedInAccount = Boolean(authCaps.authUserUid && !authCaps.authIsAnonymous);
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#0E1015]">
@@ -365,10 +406,45 @@ export function Landing() {
               href={REPO_URL}
               target="_blank"
               rel="noreferrer"
-              className="hidden h-9 items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white px-3.5 text-[13px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB] sm:flex"
+              className="hidden h-9 items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white px-3.5 text-[13px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB] lg:flex"
             >
               <Github className="h-4 w-4" /> Source
             </a>
+            {authCaps.firebaseConfigured && (
+              isSignedInAccount ? (
+                <button
+                  onClick={() => openAuth('signin')}
+                  className="flex h-9 items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white pl-1.5 pr-3 text-[13px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB]"
+                >
+                  {authCaps.authPhotoUrl ? (
+                    <img
+                      src={authCaps.authPhotoUrl}
+                      alt={authCaps.authDisplayName || 'Account avatar'}
+                      referrerPolicy="no-referrer"
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0E1015] font-mono text-[10px] font-semibold text-white">
+                      {(authCaps.authDisplayName || authCaps.authEmail || 'U')
+                        .slice(0, 1)
+                        .toUpperCase()}
+                    </span>
+                  )}
+                  <span className="hidden max-w-[100px] truncate sm:inline">
+                    {authCaps.authDisplayName?.split(' ')[0] ||
+                      authCaps.authEmail?.split('@')[0] ||
+                      'Account'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => openAuth('signin')}
+                  className="flex h-9 items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white px-3.5 text-[13px] font-medium text-[#1E2129] transition hover:border-[#CDD2DB]"
+                >
+                  Sign in
+                </button>
+              )
+            )}
             <button
               onClick={openApp}
               className="flex h-9 items-center gap-1.5 rounded-full bg-[#0E1015] px-4 text-[13px] font-medium text-white transition hover:bg-[#262A35]"
@@ -552,7 +628,7 @@ export function Landing() {
             {[
               { icon: WifiOff, t: 'Air-gap mode', d: 'Force on-device only and keep working offline.' },
               { icon: PanelRight, t: 'Chrome side panel', d: 'Scan any web page’s Terms locally, then hand off for a deep audit.' },
-              { icon: FileLock2, t: 'Exports that are safe to share', d: 'Redacted .txt, redlined audit .md and a JSON zero-leak certificate.' },
+              { icon: FileLock2, t: 'Exports that are safe to share', d: 'Redacted .pdf, .docx, .txt, .html, redlined audit reports, CSV logs and a JSON zero-leak receipt.' },
             ].map(({ icon: Icon, t, d }) => (
               <div key={t} className="flex gap-3 rounded-2xl border border-white/10 p-5">
                 <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/60" />
@@ -721,6 +797,15 @@ export function Landing() {
           </a>
         </div>
       </footer>
+
+      <AuthModal
+        open={authModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={openApp}
+        capabilities={authCaps}
+        authDomain={bundle.authDomain}
+      />
     </div>
   );
 }

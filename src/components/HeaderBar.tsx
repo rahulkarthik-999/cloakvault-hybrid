@@ -13,8 +13,11 @@ import {
   FileText,
   FileSpreadsheet,
   Globe,
+  UserRound,
 } from 'lucide-react';
 import { Wordmark } from './BrandMark';
+import { NanoSetupPopover } from './NanoSetupPopover';
+import type { AuthModalMode } from './AuthModal';
 import type { RemotePolicyConfig, SystemCapabilities, VaultDocument } from '../types/vault';
 
 interface HeaderBarProps {
@@ -25,7 +28,9 @@ interface HeaderBarProps {
   airGapMode: boolean;
   onToggleAirGap: () => void;
   onDownloadNano: () => void;
+  onRecheckNano: () => Promise<void>;
   onOpenFirebaseModal: () => void;
+  onOpenAuthModal: (mode: AuthModalMode) => void;
   onExportRedactedTxt: () => void;
   onExportRedactedPdf: () => void;
   onExportRedactedDocx: () => void;
@@ -45,7 +50,9 @@ export function HeaderBar({
   airGapMode,
   onToggleAirGap,
   onDownloadNano,
+  onRecheckNano,
   onOpenFirebaseModal,
+  onOpenAuthModal,
   onExportRedactedTxt,
   onExportRedactedPdf,
   onExportRedactedDocx,
@@ -124,13 +131,11 @@ export function HeaderBar({
             <span>Download Gemini Nano</span>
           </button>
         ) : (
-          <span
-            className="hidden items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-[#F3F4F7] px-3 py-1 text-[11px] text-[#697083] md:flex"
-            title="Gemini Nano isn't available in this browser, so Firebase AI Logic routes prompts to Cloud Gemini. Local redaction still runs fully on-device."
-          >
-            <Cpu className="h-3.5 w-3.5 opacity-60" />
-            Nano unavailable · cloud fallback
-          </span>
+          <NanoSetupPopover
+            status={capabilities.chromeNanoStatus}
+            onDownloadNano={onDownloadNano}
+            onRecheckNano={onRecheckNano}
+          />
         )}
 
         {/* Network / Air-Gap Segmented Toggle */}
@@ -307,6 +312,45 @@ export function HeaderBar({
           </span>
           <SlidersHorizontal className="h-3 w-3 opacity-60" />
         </button>
+
+        {/* Account / Sign In Control */}
+        {capabilities.firebaseConfigured && (
+          capabilities.authUserUid && !capabilities.authIsAnonymous ? (
+            <button
+              onClick={() => onOpenAuthModal('signin')}
+              title={capabilities.authEmail || 'Account settings'}
+              className="flex items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white py-0.5 pl-1 pr-2.5 text-[11.5px] font-medium text-[#0E1015] transition hover:border-[#CDD2DB] hover:bg-[#F3F4F7]"
+            >
+              {capabilities.authPhotoUrl ? (
+                <img
+                  src={capabilities.authPhotoUrl}
+                  alt={capabilities.authDisplayName || 'Account avatar'}
+                  referrerPolicy="no-referrer"
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0E1015] font-mono text-[9.5px] font-semibold text-white">
+                  {(capabilities.authDisplayName || capabilities.authEmail || 'U')
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </span>
+              )}
+              <span className="max-w-[110px] truncate">
+                {capabilities.authDisplayName?.split(' ')[0] ||
+                  capabilities.authEmail?.split('@')[0] ||
+                  'Account'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onOpenAuthModal('signin')}
+              className="flex items-center gap-1.5 rounded-full bg-[#0E1015] px-3 py-1 text-[11.5px] font-medium text-white transition hover:bg-[#262A35]"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              <span>Sign in</span>
+            </button>
+          )
+        )}
       </div>
     </header>
   );

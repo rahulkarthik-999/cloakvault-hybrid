@@ -25,6 +25,7 @@ import {
 } from './lib/documentExport';
 import {
   DEFAULT_REMOTE_POLICY,
+  getAuthProviderKind,
   getFirebaseBundle,
   loadRemotePolicy,
   signInGuest,
@@ -45,6 +46,7 @@ import { VaultSidebar } from './components/VaultSidebar';
 import { DocumentPaper } from './components/DocumentPaper';
 import { InspectorPane } from './components/InspectorPane';
 import { FirebaseConfigModal } from './components/FirebaseConfigModal';
+import { AuthModal, type AuthModalMode } from './components/AuthModal';
 import { MobileTabBar } from './components/MobileTabBar';
 import type {
   ChatMessage,
@@ -82,6 +84,12 @@ export default function App() {
   const [chatStreaming, setChatStreaming] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [firebaseModalOpen, setFirebaseModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('signin');
+  const openAuthModal = (mode: AuthModalMode = 'signin') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
   const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   // A task locked to on-device inference that refused to fall back to the cloud: a privacy win, not an error.
@@ -111,6 +119,10 @@ export default function App() {
     firestoreConnected: Boolean(bundle.db),
     authUserUid: null,
     authIsAnonymous: false,
+    authEmail: null,
+    authDisplayName: null,
+    authPhotoUrl: null,
+    authProvider: null,
     chromeNanoStatus: 'unsupported',
     chromeNanoDownloadProgress: null,
   });
@@ -129,6 +141,11 @@ export default function App() {
       if (!mounted) return;
 
       const params = new URLSearchParams(window.location.search);
+      const requestedAuth = params.get('auth');
+      if (requestedAuth === 'signin' || requestedAuth === 'signup') {
+        openAuthModal(requestedAuth);
+        window.history.replaceState({}, '', '/app');
+      }
       const clippedText = params.get('clip');
       const clippedTitle = params.get('title') || 'Clipped Webpage Document';
 
@@ -202,6 +219,10 @@ export default function App() {
         ...c,
         authUserUid: user?.uid ?? null,
         authIsAnonymous: user?.isAnonymous ?? false,
+        authEmail: user?.email ?? null,
+        authDisplayName: user?.displayName ?? null,
+        authPhotoUrl: user?.photoURL ?? null,
+        authProvider: getAuthProviderKind(user),
       }));
     });
 
@@ -270,6 +291,11 @@ export default function App() {
         chromeNanoDownloadProgress: null,
       }));
     }
+  };
+
+  const handleRecheckNano = async () => {
+    const status = await checkChromeNanoAvailability();
+    setCapabilities((c) => ({ ...c, chromeNanoStatus: status }));
   };
 
   const handleLoadSample = (sampleId: string) => {
@@ -646,7 +672,9 @@ export default function App() {
           setShieldNotice(null);
         }}
         onDownloadNano={handleDownloadNano}
+        onRecheckNano={handleRecheckNano}
         onOpenFirebaseModal={() => setFirebaseModalOpen(true)}
+        onOpenAuthModal={openAuthModal}
         onExportRedactedTxt={() => exportRedactedDocument(activeVault)}
         onExportRedactedPdf={() => void exportRedactedPdf(activeVault)}
         onExportRedactedDocx={() => exportRedactedDocx(activeVault)}
@@ -744,6 +772,16 @@ export default function App() {
         capabilities={capabilities}
         remotePolicy={remotePolicy}
         projectId={bundle.projectId}
+        authDomain={bundle.authDomain}
+        onOpenAuthModal={openAuthModal}
+      />
+
+      <AuthModal
+        open={authModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setAuthModalOpen(false)}
+        capabilities={capabilities}
+        authDomain={bundle.authDomain}
       />
     </div>
   );

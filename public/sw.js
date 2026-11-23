@@ -1,7 +1,7 @@
 /* CloakVault service worker — offline app shell (pairs with air-gap mode).
  * Only same-origin GETs are cached. Firebase / Gemini / App Check calls are cross-origin and
  * always go to the network, so no AI request or document data is ever cached here. */
-const CACHE = 'cloakvault-shell-v2';
+const CACHE = 'cloakvault-shell-v3';
 const SHELL = ['/', '/app', '/manifest.webmanifest', '/brand/mark.png', '/brand/wordmark.png', '/brand/icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -21,14 +21,18 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Never intercept Firebase Hosting reserved paths (e.g. /__/auth/handler, /__/firebase/*).
+  if (url.pathname.startsWith('/__/')) return;
 
   // Pages: network first (fresh deploys), fall back to the cached shell when offline.
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/app', copy));
+          if (res.ok && (url.pathname === '/' || url.pathname === '/app')) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('/app', copy));
+          }
           return res;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match('/app')))

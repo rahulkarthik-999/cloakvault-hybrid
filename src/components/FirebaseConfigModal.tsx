@@ -12,11 +12,13 @@ import {
   UserCheck,
 } from 'lucide-react';
 import {
+  formatAuthError,
   saveRuntimeFirebaseConfig,
   signInGuest,
   signInWithGoogleAccount,
   signOutAccount,
 } from '../lib/firebaseClient';
+import { GoogleLogo, type AuthModalMode } from './AuthModal';
 import type { RemotePolicyConfig, SystemCapabilities } from '../types/vault';
 
 interface FirebaseConfigModalProps {
@@ -25,6 +27,8 @@ interface FirebaseConfigModalProps {
   capabilities: SystemCapabilities;
   remotePolicy: RemotePolicyConfig;
   projectId: string | null;
+  authDomain?: string | null;
+  onOpenAuthModal?: (mode: AuthModalMode) => void;
 }
 
 export function FirebaseConfigModal({
@@ -33,6 +37,8 @@ export function FirebaseConfigModal({
   capabilities,
   remotePolicy,
   projectId,
+  authDomain,
+  onOpenAuthModal,
 }: FirebaseConfigModalProps) {
   const [configJson, setConfigJson] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,11 +72,7 @@ export function FirebaseConfigModal({
     try {
       await signInGuest();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Anonymous sign-in failed. Enable Anonymous provider in Firebase Auth.'
-      );
+      setError(formatAuthError(e));
     } finally {
       setAuthBusy(false);
     }
@@ -82,11 +84,18 @@ export function FirebaseConfigModal({
     try {
       await signInWithGoogleAccount();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Google sign-in failed.');
+      setError(formatAuthError(e));
     } finally {
       setAuthBusy(false);
     }
   };
+
+  const authProviderLabel =
+    capabilities.authProvider === 'google'
+      ? 'Google'
+      : capabilities.authProvider === 'password'
+      ? 'Email'
+      : 'Guest';
 
   const services = [
     {
@@ -102,7 +111,7 @@ export function FirebaseConfigModal({
       active: capabilities.appCheckInitialized,
       icon: Shield,
       detail: capabilities.appCheckInitialized
-        ? 'Active (ReCaptchaV3 / Debug Token mode)'
+        ? 'Active (reCAPTCHA Enterprise)'
         : 'Pending Firebase config',
     },
     {
@@ -122,8 +131,8 @@ export function FirebaseConfigModal({
       active: Boolean(capabilities.authUserUid),
       icon: UserCheck,
       detail: capabilities.authUserUid
-        ? `Signed in (${capabilities.authIsAnonymous ? 'Guest' : 'Google'} · ${capabilities.authUserUid.slice(0, 8)}…)`
-        : 'Not signed in',
+        ? `Signed in (${authProviderLabel}${capabilities.authEmail ? ` · ${capabilities.authEmail}` : ''} · ${capabilities.authUserUid.slice(0, 8)}…)`
+        : `Not signed in${authDomain ? ` · authDomain: ${authDomain}` : ''}`,
     },
   ];
 
@@ -173,23 +182,49 @@ export function FirebaseConfigModal({
 
         {capabilities.firebaseConfigured && (
           <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#E5E7EC] bg-[#FAFBFC] p-3">
-            {!capabilities.authUserUid ? (
+            {!capabilities.authUserUid || capabilities.authIsAnonymous ? (
               <>
-                <button
-                  onClick={handleGuestLogin}
-                  disabled={authBusy}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#0E1015] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#262A35] disabled:opacity-50"
-                >
-                  <LogIn className="h-3.5 w-3.5" />
-                  Anonymous Guest Sign-In
-                </button>
                 <button
                   onClick={handleGoogleLogin}
                   disabled={authBusy}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EC] bg-white px-3 py-1.5 text-xs font-medium text-[#0E1015] hover:bg-[#ECEEF2] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-md border border-[#D5D9E2] bg-white px-3 py-1.5 text-xs font-medium text-[#0E1015] shadow-2xs transition hover:bg-[#F3F4F7] disabled:opacity-50"
                 >
-                  Sign in with Google
+                  <GoogleLogo className="h-3.5 w-3.5 shrink-0" />
+                  <span>Sign in with Google</span>
                 </button>
+                {onOpenAuthModal && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenAuthModal('signin');
+                      }}
+                      disabled={authBusy}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-[#0E1015] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#262A35] disabled:opacity-50"
+                    >
+                      <LogIn className="h-3.5 w-3.5" />
+                      Sign In / Sign Up
+                    </button>
+                  </>
+                )}
+                {!capabilities.authIsAnonymous && (
+                  <button
+                    onClick={handleGuestLogin}
+                    disabled={authBusy}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EC] bg-white px-3 py-1.5 text-xs font-medium text-[#4A5061] hover:bg-[#ECEEF2] disabled:opacity-50"
+                  >
+                    Anonymous Guest
+                  </button>
+                )}
+                {capabilities.authIsAnonymous && (
+                  <button
+                    onClick={() => signOutAccount()}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-[#E5E7EC] bg-white px-3 py-1.5 text-xs font-medium text-[#3A3F4D] hover:bg-[#ECEEF2]"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign Out Guest
+                  </button>
+                )}
               </>
             ) : (
               <button

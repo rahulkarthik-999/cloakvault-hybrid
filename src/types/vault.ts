@@ -122,6 +122,10 @@ export interface SystemCapabilities {
   firestoreConnected: boolean;
   authUserUid: string | null;
   authIsAnonymous: boolean;
+  authEmail: string | null;
+  authDisplayName: string | null;
+  authPhotoUrl: string | null;
+  authProvider: 'anonymous' | 'google' | 'password' | null;
   chromeNanoStatus:
     | 'available'
     | 'downloadable'
