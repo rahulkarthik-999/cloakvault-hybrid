@@ -232,4 +232,34 @@ describe('hybrid inference routing & actual inferenceSource verification', () =>
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'CANCELLED' });
   });
+
+  it('Automatically retries with a compact Nano prompt if Chrome reports "The input is too large."', async () => {
+    stubNavigator({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+      onLine: false,
+    });
+    const promptSpy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('The input is too large.'))
+      .mockResolvedValueOnce(
+        '{"summary":"Compact local Nano summary","documentType":"MSA","urgency":"HIGH"}'
+      );
+    (globalThis as Record<string, unknown>).LanguageModel = {
+      availability: vi.fn(async () => 'available'),
+      create: vi.fn(async () => ({ prompt: promptSpy, destroy: vi.fn() })),
+    };
+
+    const res = await runHybridTriage({
+      redactedText: 'A'.repeat(2500),
+      category: 'legal',
+      cloudModelName: 'gemini-4-hydrogen',
+      forceOffline: true,
+    });
+
+    expect(res.source).toBe('ON_DEVICE');
+    expect(res.summary).toBe('Compact local Nano summary');
+    expect(promptSpy).toHaveBeenCalledTimes(2);
+    expect(promptSpy.mock.calls[1][0].length).toBeLessThanOrEqual(1200);
+  });
 });

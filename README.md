@@ -33,12 +33,12 @@ The documents that most need a second opinion — an NDA, a bank statement, an i
 
 1. Open **https://cloakvault.buzz** → **Open the workbench** (no sign-up; a sample contract is preloaded).
 2. Toggle **Original (Local)** ⇄ **Redacted View** — 15 entities are tokenized on-device. Highlight any text to redact more.
-3. Click **Run Hybrid Audit** → a risk score, clause findings and redlines in ~5–10 s (`IN_CLOUD`, via Firebase AI Logic + App Check).
+3. Click **Run Hybrid Audit** → a risk score, clause findings and redlines in ~5–12 s (`IN_CLOUD` via Firebase AI Logic + `gemini-4-hydrogen` + App Check).
 4. Click **Locate ↗** on a finding, then flip **Re-Hydrated ⇄ Cloud Tokens** to see what the cloud actually saw.
 5. Open **Outbound Cloud Payload** to verify zero raw PII and the SHA-256 receipt; check **Telemetry** for real `inferenceSource`, latency and TTFT.
-6. Toggle **Hybrid routing → Air-gap** to lock every task to on-device. In Chrome with built-in AI, click **Download Gemini Nano** and everything keeps working offline.
+6. Toggle **Hybrid routing → Air-gap** to lock every task to on-device. On compatible desktop Chrome with built-in AI, click **Enable on-device AI** and everything keeps working offline.
 
-> On a browser without Gemini Nano, the header shows *“Nano unavailable · cloud fallback”* — that's the hybrid SDK doing its job. Redaction is always 100% local.
+> On mobile (Android / iOS) or browsers without Gemini Nano, the header displays a calm **“Cloud AI active”** indicator — Firebase AI Logic automatically routes sanitized tokens to cloud Gemini while redaction stays 100% local. Developers can append `?debug=nano` to inspect raw capability diagnostics inside the Firebase panel.
 
 ## How it works
 
@@ -91,10 +91,10 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 |---|---|---|
 | **Firebase AI Logic** (`firebase/ai`) | Hybrid on-device/cloud inference, streaming, `inferenceSource` telemetry | `src/lib/hybridAiService.ts`, `src/lib/firebaseClient.ts` |
 | **App Check** | `ReCaptchaEnterpriseProvider` on every AI request (debug token in local dev only) | `src/lib/firebaseClient.ts` |
-| **Remote Config** | Live policy: `default_qa_inference_mode`, `deep_audit_inference_mode`, `cloud_model_name`, `strict_pii_shield`, `max_local_context_chars` | `src/lib/firebaseClient.ts` |
+| **Remote Config** | Live policy ([`remoteconfig.template.json`](remoteconfig.template.json)): `default_qa_inference_mode`, `deep_audit_inference_mode`, `cloud_model_name` (`gemini-4-hydrogen`), `strict_pii_shield`, `max_local_context_chars` | `src/lib/firebaseClient.ts` |
 | **Cloud Firestore** | Redacted vaults + telemetry only; [rules](firestore.rules) require `zeroLeakVerified == true` and an allowlisted field set | `src/lib/firestoreVault.ts` |
-| **Authentication** | Invisible anonymous guest for sync, optional Google sign-in — no sign-up wall | `src/lib/firebaseClient.ts` |
-| **Hosting** | https://cloakvault.buzz | `firebase.json` |
+| **Authentication** | Zero-signup anonymous guest + optional Google Sign-In & Email/Password Sign-Up/Sign-In routed on custom domain `cloakvault.buzz` | `src/lib/firebaseClient.ts`, `src/components/AuthModal.tsx` |
+| **Hosting** | https://cloakvault.buzz (with offline PWA service worker bypassing `/__/auth/*`) | `firebase.json`, `public/sw.js` |
 
 ![Zero-leak proof](docs/media/04-zero-leak-proof.jpg)
 
@@ -116,7 +116,7 @@ result.response.inferenceSource; // ON_DEVICE | IN_CLOUD → shown in the UI + t
 
 ## Demo video
 
-📺 **YouTube:** _link added on submission_ — under 3 minutes, English narration + English subtitles, illustrated chapters and original sound design.
+📺 **Watch on YouTube:** **[https://youtu.be/kCnAQr25Lo4](https://youtu.be/kCnAQr25Lo4)** — under 3 minutes, English narration + English subtitles, illustrated chapters and original sound design.
 
 The video is generated reproducibly from the real app (live Firebase AI Logic calls) — see [`marketing/`](marketing/README.md).
 
@@ -128,12 +128,13 @@ cp .env.example .env.local     # add your Firebase web config (or paste it in th
 npm run dev                     # http://localhost:5173  (landing)  ·  /app (workbench)
 ```
 
-Firebase console setup: enable **Firebase AI Logic** (Gemini Developer API), **App Check** with reCAPTCHA Enterprise (register a debug token for localhost), **Remote Config**, **Firestore** (`firebase deploy --only firestore:rules`), and **Anonymous** + **Google** sign-in.
+Firebase console setup: enable **Firebase AI Logic** (Gemini Developer API), **App Check** with reCAPTCHA Enterprise (register a debug token for localhost), **Remote Config**, **Firestore** (`firebase deploy --only firestore:rules`), and **Anonymous** + **Google** + **Email/Password** sign-in.
 
 ### Enable Gemini Nano (on-device) in Chrome
 1. Use Chrome desktop with the built-in Prompt API (see [Chrome built-in AI](https://developer.chrome.com/docs/ai/built-in)).
-2. In the workbench header click **Download Gemini Nano**; the pill turns green: *Gemini Nano · on-device*.
-3. Toggle **Air-gap** (or go offline) to watch every task run locally.
+2. In the workbench header click **Enable on-device AI** → **Download & enable**; once ready, the pill turns green: *Gemini Nano · on-device*.
+3. Toggle **Air-gap** (or go offline) to watch triage, Q&A, and risk audits run locally with zero cloud requests.
+4. *(Developers)* Open `/app?debug=nano` and click the **Firebase** button to inspect raw `LanguageModel.availability()` and platform diagnostics.
 
 ### Chrome side-panel extension
 `chrome://extensions` → Developer mode → **Load unpacked** → select `chrome-extension/`. Open any Terms of Service page, scan & redact locally, then **Send to CloakVault Web App**.
@@ -141,7 +142,7 @@ Firebase console setup: enable **Firebase AI Logic** (Gemini Developer API), **A
 ### Tests & build
 
 ```bash
-npm test          # Vitest — zero-leak redaction & re-hydration
+npm test          # Vitest — 29 tests: zero-leak redaction, platform Nano detection, hybrid/offline routing, exports, auth
 npm run typecheck
 npm run build
 ```
@@ -150,15 +151,21 @@ npm run build
 
 ```
 src/
-  components/Landing.tsx        landing page (/)
-  App.tsx                       workbench (/app)
-  lib/hybridAiService.ts        Firebase AI Logic hybrid inference (all AI calls)
-  lib/firebaseClient.ts         App, AI Logic, App Check, Remote Config, Auth, Firestore init
-  lib/piiEngine.ts              deterministic detectors, tokenization, re-hydration
-  lib/cryptoProof.ts            SHA-256 receipts + exports
-chrome-extension/               side-panel extension
-marketing/                      reproducible demo video + gallery pipeline
-firestore.rules                 zero-leak enforced rules
+  components/Landing.tsx                 landing page (/)
+  components/NanoStatusControl.tsx       platform-aware on-device / Cloud AI status UX
+  components/DeveloperNanoDiagnostics.tsx dev-only (?debug=nano) diagnostics panel
+  components/AuthModal.tsx               Sign-In / Sign-Up / Google OAuth modal
+  App.tsx                                workbench (/app)
+  lib/nanoPlatform.ts                    OS/browser & Prompt API capability detection
+  lib/hybridAiService.ts                 Firebase AI Logic hybrid inference, timeouts & Nano prompt sizing
+  lib/firebaseClient.ts                  App, AI Logic, App Check, Remote Config, custom-domain Auth, Firestore
+  lib/piiEngine.ts                       deterministic detectors, tokenization, re-hydration
+  lib/documentExport.ts                  offline pure-TS PDF, DOCX, HTML, CSV exporters
+  lib/cryptoProof.ts                     SHA-256 receipts & zero-leak certificates
+chrome-extension/                        Chrome side-panel extension
+remoteconfig.template.json               live Firebase Remote Config policy
+marketing/                               reproducible demo video + gallery pipeline
+firestore.rules                          zero-leak enforced rules
 ```
 
 ## License

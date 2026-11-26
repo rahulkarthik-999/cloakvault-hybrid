@@ -79,7 +79,7 @@ scanBtn.addEventListener('click', async () => {
         const summary = await session.prompt(
           `Summarize any risky clauses, hidden fees, or auto-renewal traps in this redacted text:\n\n${redacted.slice(
             0,
-            4000
+            2000
           )}`
         );
         session.destroy?.();

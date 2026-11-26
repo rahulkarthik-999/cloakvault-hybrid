@@ -240,6 +240,11 @@ interface HybridGenerationOutput {
   ttftMs: number;
 }
 
+function isInputTooLargeError(err: unknown): boolean {
+  const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
+  return /input is too large|quota.?exceeded|context.?length|too many tokens/i.test(msg);
+}
+
 /**
  * Unified, zero-mock hybrid execution helper.
  * Uses Firebase AI Logic SDK (on-device Nano <-> Cloud Gemini) as primary runtime,
@@ -248,7 +253,9 @@ interface HybridGenerationOutput {
  */
 async function executeHybridInference(params: {
   prompt: string;
+  localPrompt?: string;
   systemInstruction?: string;
+  localSystemInstruction?: string;
   mode: HybridInferenceMode;
   cloudModelName: string;
   allowCloud: boolean;
@@ -301,6 +308,10 @@ async function executeHybridInference(params: {
       if (params.responseMimeType) {
         generationConfig.responseMimeType = params.responseMimeType;
       }
+      const promptForSdk =
+        effectiveMode === 'only_on_device' ? params.localPrompt ?? params.prompt : params.prompt;
+      const localSystem = params.localSystemInstruction ?? params.systemInstruction;
+
       const model = getGenerativeModel(bundle.ai, {
         mode: toSdkInferenceMode(effectiveMode),
         inCloudParams: {
@@ -311,12 +322,12 @@ async function executeHybridInference(params: {
         onDeviceParams: {
           createOptions: {
             expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
-            ...(params.systemInstruction
+            ...(localSystem
               ? {
                   initialPrompts: [
                     {
                       role: 'system',
-                      content: [{ type: 'text', value: params.systemInstruction }],
+                      content: [{ type: 'text', value: localSystem }],
                     },
                   ],
                 }
@@ -330,7 +341,7 @@ async function executeHybridInference(params: {
 
       if (params.onTokenChunk) {
         const streamRes = await raceWithTimeoutAndSignal(
-          model.generateContentStream(params.prompt, {
+          model.generateContentStream(promptForSdk, {
             signal: attemptAbort.signal,
             timeout: requestTimeoutMs,
           }),
@@ -381,7 +392,7 @@ async function executeHybridInference(params: {
       }
 
       const result = await raceWithTimeoutAndSignal(
-        model.generateContent(params.prompt, {
+        model.generateContent(promptForSdk, {
           signal: attemptAbort.signal,
           timeout: requestTimeoutMs,
         }),
@@ -426,41 +437,56 @@ async function executeHybridInference(params: {
       status = 'unavailable';
     }
     if (status === 'available') {
-      const session = await lm.create({
-        expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
-        ...(params.systemInstruction ? { systemPrompt: params.systemInstruction } : {}),
-      });
-      try {
-        if (params.onTokenChunk && typeof session.promptStreaming === 'function') {
-          let accumulated = '';
-          let ttftMs = 0;
-          for await (const chunk of session.promptStreaming(params.prompt)) {
-            if (!ttftMs) ttftMs = Math.round(performance.now() - started);
-            // Chrome Prompt API streaming yields either incremental chunks or cumulative text depending on build
-            accumulated = chunk.startsWith(accumulated) ? chunk : accumulated + chunk;
-            params.onTokenChunk(accumulated);
+      const localSystem = params.localSystemInstruction ?? params.systemInstruction;
+      const primaryLocalPrompt = params.localPrompt ?? params.prompt;
+      const promptCandidates = [
+        primaryLocalPrompt,
+        primaryLocalPrompt.length > 1200 ? primaryLocalPrompt.slice(0, 1200) : null,
+      ].filter((p): p is string => Boolean(p));
+
+      for (let i = 0; i < promptCandidates.length; i++) {
+        const candidatePrompt = promptCandidates[i];
+        const session = await lm.create({
+          expectedOutputs: DEFAULT_EXPECTED_OUTPUTS,
+          ...(localSystem ? { systemPrompt: localSystem } : {}),
+        });
+        try {
+          if (params.onTokenChunk && typeof session.promptStreaming === 'function') {
+            let accumulated = '';
+            let ttftMs = 0;
+            for await (const chunk of session.promptStreaming(candidatePrompt)) {
+              if (!ttftMs) ttftMs = Math.round(performance.now() - started);
+              // Chrome Prompt API streaming yields either incremental chunks or cumulative text depending on build
+              accumulated = chunk.startsWith(accumulated) ? chunk : accumulated + chunk;
+              params.onTokenChunk(accumulated);
+            }
+            const totalMs = Math.round(performance.now() - started);
+            return {
+              text: accumulated,
+              source: 'ON_DEVICE',
+              modelLabel: 'Gemini Nano (Chrome Built-in)',
+              latencyMs: totalMs,
+              ttftMs: ttftMs || totalMs,
+            };
           }
+
+          const text = await session.prompt(candidatePrompt);
           const totalMs = Math.round(performance.now() - started);
           return {
-            text: accumulated,
+            text,
             source: 'ON_DEVICE',
             modelLabel: 'Gemini Nano (Chrome Built-in)',
             latencyMs: totalMs,
-            ttftMs: ttftMs || totalMs,
+            ttftMs: totalMs,
           };
+        } catch (err) {
+          lastError = err;
+          if (!isInputTooLargeError(err) || i === promptCandidates.length - 1) {
+            break;
+          }
+        } finally {
+          session.destroy?.();
         }
-
-        const text = await session.prompt(params.prompt);
-        const totalMs = Math.round(performance.now() - started);
-        return {
-          text,
-          source: 'ON_DEVICE',
-          modelLabel: 'Gemini Nano (Chrome Built-in)',
-          latencyMs: totalMs,
-          ttftMs: totalMs,
-        };
-      } finally {
-        session.destroy?.();
       }
     }
   }
@@ -514,10 +540,14 @@ Do not include generic headings or invented values.
 TEXT:
 ${rawText.slice(0, 4200)}`;
 
+  const localPrompt = `Extract personal names, organizations, addresses, account numbers, and IDs from this text as a JSON array [{"text":"exact text","type":"PERSON"|"ORG"|"ADDRESS"|"ACCOUNT"|"GOV_ID"}]:\n${rawText.slice(0, 1600)}`;
+
   const res = await executeHybridInference({
     prompt,
+    localPrompt,
     systemInstruction:
       'You are an on-device PII extraction engine. Output strictly valid JSON array and nothing else.',
+    localSystemInstruction: 'Output only a valid JSON array of PII entities.',
     mode: 'only_on_device',
     cloudModelName,
     allowCloud: false,
@@ -582,9 +612,13 @@ Return ONLY valid JSON:
 DOCUMENT:
 ${params.redactedText.slice(0, 5000)}`;
 
+  const localPrompt = `Triage this redacted document. Preserve [TOKEN_N] placeholders. Return JSON {"documentType":"type","urgency":"LOW"|"MEDIUM"|"HIGH","summary":"2 short sentences on key risks"}:\n${params.redactedText.slice(0, 1600)}`;
+
   const res = await executeHybridInference({
     prompt,
+    localPrompt,
     systemInstruction: 'You are a precise legal/financial triage assistant. Output strictly JSON.',
+    localSystemInstruction: 'Output strictly JSON with documentType, urgency, and summary.',
     mode: params.forceOffline ? 'only_on_device' : 'prefer_on_device',
     cloudModelName: params.cloudModelName,
     allowCloud: !params.forceOffline,
@@ -652,11 +686,16 @@ Provide 4 to 6 high-impact findings ordered by severity. Every clauseQuote MUST 
 SANITIZED DOCUMENT (${params.category.toUpperCase()}):
 ${params.redactedText.slice(0, 12000)}`;
 
+  const localPrompt = `Audit this sanitized ${params.category} document. Preserve [TOKEN_N] tokens. Return JSON {"riskScore":0-100,"riskVerdict":"LOW_RISK"|"MODERATE_RISK"|"HIGH_RISK"|"CRITICAL_RISK","executiveSummary":"2 sentences","findings":[{"severity":"CRITICAL"|"HIGH"|"MEDIUM","title":"issue","clauseQuote":"short quote","explanation":"impact","recommendedAction":"fix"}],"missingProtections":["item"]}:\n${params.redactedText.slice(0, 1600)}`;
+
   const [res, originalSha256, redactedSha256] = await Promise.all([
     executeHybridInference({
       prompt,
+      localPrompt,
       systemInstruction:
         'You are an adversarial contract, ledger, and medical-billing auditor. Return strictly valid JSON with exact verbatim clauseQuote excerpts and preserved [TOKEN_N] placeholders.',
+      localSystemInstruction:
+        'You are a concise risk auditor. Return strictly valid JSON with riskScore, riskVerdict, executiveSummary, findings, and missingProtections.',
       mode: effectiveMode,
       cloudModelName: params.cloudModelName,
       allowCloud: !params.forceOffline,
@@ -782,10 +821,15 @@ Question: ${params.question}
 
 Answer clearly and concisely, citing exact clauses or dollar figures from the document. Preserve [TOKEN_N] placeholders verbatim.`;
 
+  const localPrompt = `Document (keep [TOKEN_N] tokens):\n${params.redactedText.slice(0, 1600)}\n\nQuestion: ${params.question}\nAnswer concisely:`;
+
   const res = await executeHybridInference({
     prompt,
+    localPrompt,
     systemInstruction:
       'You are a legal and financial document analyst. Answer strictly from the provided sanitized document. Preserve all [TOKEN_N] placeholders verbatim.',
+    localSystemInstruction:
+      'Answer concisely from the sanitized document. Keep all [TOKEN_N] tokens intact.',
     mode: effectiveMode,
     cloudModelName: params.cloudModelName,
     allowCloud: !params.forceOffline,
