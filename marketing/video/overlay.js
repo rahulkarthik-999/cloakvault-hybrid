@@ -60,19 +60,52 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  let capTimers = [];
-  window.__cvCaptions = (chunks) => {
-    // chunks: [{text, ms}] — shown back to back
-    capTimers.forEach(clearTimeout);
-    capTimers = [];
+  // Captions run on a pausable clock so a "skipped wait" cut (screencast paused) doesn't advance them.
+  let capQ = [], capStart = 0, capIv = null, pausedAt = null, pausedTotal = 0;
+  const vnow = () => (pausedAt ?? performance.now()) - pausedTotal;
+  const capTick = () => {
     const el = document.getElementById('cv-cap');
     if (!el) return;
+    const e = vnow() - capStart;
+    while (capQ.length && capQ[0].at <= e) {
+      const q = capQ.shift();
+      if (q.text === null) el.style.opacity = 0;
+      else { el.textContent = q.text; el.style.opacity = 1; }
+    }
+  };
+  window.__cvCaptions = (chunks) => {
+    // chunks: [{text, ms}] — shown back to back
+    capQ = [];
     let t = 0;
-    chunks.forEach((c) => {
-      capTimers.push(setTimeout(() => { el.textContent = c.text; el.style.opacity = 1; }, t));
-      t += c.ms;
-    });
-    capTimers.push(setTimeout(() => { el.style.opacity = 0; }, t));
+    chunks.forEach((c) => { capQ.push({ at: t, text: c.text }); t += c.ms; });
+    capQ.push({ at: t, text: null });
+    capStart = vnow();
+    if (!capIv) capIv = setInterval(capTick, 30);
+    capTick();
+  };
+  window.__cvPause = (on) => {
+    if (on && pausedAt === null) pausedAt = performance.now();
+    else if (!on && pausedAt !== null) { pausedTotal += performance.now() - pausedAt; pausedAt = null; }
+  };
+  // Honest jump-cut marker: tells the viewer how much real on-device inference time was cut.
+  window.__cvSkip = (secs, what, note) => {
+    what = what || 'On-device inference';
+    note = note === undefined ? '4-core 2017 laptop CPU · Gemini Nano' : note;
+    let el = document.getElementById('cv-skip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cv-skip';
+      el.style.cssText = 'position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:2147483646;' +
+        'display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;background:#0E1015;color:#fff;' +
+        'font:500 17px/1.2 Geist,ui-sans-serif,system-ui;box-shadow:0 12px 32px rgba(14,16,21,.28);' +
+        'transition:opacity .35s ease;opacity:0;pointer-events:none';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<span style="font-size:19px">⏩</span><span>' + what + ' · <b>' + secs +
+      ' s skipped</b></span>' + (note ? '<span style="opacity:.6;font-size:14px">' + note + '</span>' : '');
+    el.style.opacity = 1;
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.opacity = 0; }, 3200);
   };
   window.__cvCard = (html) => {
     const el = document.getElementById('cv-card');

@@ -132,6 +132,45 @@ describe('hybrid inference routing & actual inferenceSource verification', () =>
     expect(res.modelLabel).toBe('gemini-4-hydrogen');
   });
 
+  it('Falls back to gemini-3.8-flash when gemini-4-hydrogen hangs or errors', async () => {
+    stubNavigator({
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1',
+      onLine: true,
+      maxTouchPoints: 5,
+    });
+    delete (globalThis as Record<string, unknown>).LanguageModel;
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockGenerateContent
+      .mockRejectedValueOnce(new Error('Timeout has expired.'))
+      .mockResolvedValueOnce({
+        response: {
+          inferenceSource: 'in_cloud',
+          text: () => '{"summary":"Fallback cloud triage","documentType":"MSA","urgency":"HIGH"}',
+        },
+      });
+
+    const res = await runHybridTriage({
+      redactedText: 'Agreement between [ORG_1] and [PERSON_1].',
+      category: 'legal',
+      cloudModelName: 'gemini-4-hydrogen',
+      forceOffline: false,
+    });
+
+    expect(res.source).toBe('IN_CLOUD');
+    expect(res.modelLabel).toBe('gemini-3.8-flash');
+    expect(mockGetGenerativeModel).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({ inCloudParams: expect.objectContaining({ model: 'gemini-4-hydrogen' }) })
+    );
+    expect(mockGetGenerativeModel).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({ inCloudParams: expect.objectContaining({ model: 'gemini-3.8-flash' }) })
+    );
+  });
+
   it('Desktop Chrome with Nano available executes genuinely ON_DEVICE', async () => {
     stubNavigator({
       userAgent:

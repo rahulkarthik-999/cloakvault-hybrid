@@ -245,8 +245,8 @@ export function InspectorPane({
             <div className="flex-1">
               <p className="text-[12.5px] font-semibold">Held on-device — 0 bytes sent</p>
               <p className="mt-0.5 leading-snug text-emerald-900/80">
-                {airGapMode ? 'Air-gap mode' : 'This task'} requires on-device AI, which is
-                currently unavailable in this browser. Nothing was sent to the cloud.
+                {airGapMode ? 'Air-gap mode locks this task' : 'This task is locked'} to Gemini
+                Nano on this device, so CloakVault held it here. Nothing was sent to the cloud.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {capabilities.nanoCapability.canDownloadOnDevice &&
@@ -666,8 +666,8 @@ export function InspectorPane({
             <div className="mb-3 flex items-start gap-2 rounded-md border border-[#E5E7EC] bg-[#FAFBFC] px-3 py-2 text-[11.5px] text-[#4A5061]">
               <ShieldCheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />
               <span>
-                Local deterministic PII shielding is active. On-device AI entity discovery is
-                currently unavailable in this browser.
+                Local deterministic PII shielding is active. AI entity discovery adds a second
+                on-device pass wherever Chrome provides Gemini Nano.
               </span>
             </div>
           )}

@@ -52,6 +52,13 @@ export async function getNanoCapabilitySnapshot(): Promise<NanoCapabilitySnapsho
 
 const NANO_DOWNLOAD_STALL_MS = 35_000;
 const CLOUD_REQUEST_TIMEOUT_MS = 35_000;
+// CPU-only Gemini Nano can need minutes to prefill a long document; the Cancel button stays available.
+const ON_DEVICE_REQUEST_TIMEOUT_MS = 240_000;
+// If the configured cloud model hangs or errors, switch once to this model before giving up.
+export const FALLBACK_CLOUD_MODEL = 'gemini-3.8-flash';
+// With a fallback available, don't let a hung primary model hold the user for the full 35 s.
+// (Hydrogen audits normally finish in ~10–20 s.)
+const PRIMARY_CLOUD_TIMEOUT_WITH_FALLBACK_MS = 30_000;
 
 class RequestTimeoutError extends Error {
   constructor() {
@@ -288,14 +295,32 @@ async function executeHybridInference(params: {
 
   let lastError: unknown = null;
 
+  let likelyOnDevice =
+    platform.isChromeDesktop &&
+    lm !== null &&
+    (effectiveMode === 'only_on_device' || effectiveMode === 'prefer_on_device');
+  if (likelyOnDevice && effectiveMode === 'prefer_on_device' && lm) {
+    // PREFER_ON_DEVICE only runs locally when the model is actually ready; otherwise it's a cloud call.
+    try {
+      likelyOnDevice = (await lm.availability({ expectedOutputs: DEFAULT_EXPECTED_OUTPUTS })) === 'available';
+    } catch {
+      likelyOnDevice = false;
+    }
+  }
+
+  // Cloud model in use for this request; switches once to FALLBACK_CLOUD_MODEL if the primary fails.
+  let cloudModel = params.cloudModelName;
+  const canSwitchCloudModel = () =>
+    cloudModel !== FALLBACK_CLOUD_MODEL && effectiveMode !== 'only_on_device' && !likelyOnDevice;
+
   // 1. Primary path: Firebase AI Logic SDK (Hybrid Inference)
   // Gemini occasionally answers 429/500/503 ("high demand") for a few seconds; retry those with
   // backoff before surfacing an error. Streams are only retried if no tokens were shown yet.
   for (let attempt = 0; canInvokeFirebaseAi && bundle.ai && attempt <= RETRY_DELAYS_MS.length; attempt++) {
     let streamedAnyToken = false;
     try {
-      const isGemini4 = params.cloudModelName.startsWith('gemini-4');
-      const supportsThinkingLevel = params.cloudModelName.startsWith('gemini-3') || isGemini4;
+      const isGemini4 = cloudModel.startsWith('gemini-4');
+      const supportsThinkingLevel = cloudModel.startsWith('gemini-3') || isGemini4;
       const generationConfig: Record<string, unknown> = {};
       if (supportsThinkingLevel && params.thinkingLevel) {
         // Gemini 4 models support LOW/MEDIUM/HIGH/XHIGH (MINIMAL is rejected with HTTP 400).
@@ -315,7 +340,7 @@ async function executeHybridInference(params: {
       const model = getGenerativeModel(bundle.ai, {
         mode: toSdkInferenceMode(effectiveMode),
         inCloudParams: {
-          model: params.cloudModelName,
+          model: cloudModel,
           ...(params.systemInstruction ? { systemInstruction: params.systemInstruction } : {}),
           ...(Object.keys(generationConfig).length > 0 ? { generationConfig } : {}),
         },
@@ -336,7 +361,13 @@ async function executeHybridInference(params: {
         },
       });
 
-      const requestTimeoutMs = params.timeoutMs ?? CLOUD_REQUEST_TIMEOUT_MS;
+      const requestTimeoutMs =
+        params.timeoutMs ??
+        (likelyOnDevice
+          ? ON_DEVICE_REQUEST_TIMEOUT_MS
+          : canSwitchCloudModel()
+          ? PRIMARY_CLOUD_TIMEOUT_WITH_FALLBACK_MS
+          : CLOUD_REQUEST_TIMEOUT_MS);
       const attemptAbort = new AbortController();
 
       if (params.onTokenChunk) {
@@ -385,7 +416,7 @@ async function executeHybridInference(params: {
         return {
           text: accumulated || finalResp.text(),
           source: src,
-          modelLabel: src === 'ON_DEVICE' ? 'Gemini Nano (Firebase AI Logic)' : params.cloudModelName,
+          modelLabel: src === 'ON_DEVICE' ? 'Gemini Nano (Firebase AI Logic)' : cloudModel,
           latencyMs: totalMs,
           ttftMs: ttftMs || totalMs,
         };
@@ -405,7 +436,7 @@ async function executeHybridInference(params: {
       return {
         text: result.response.text(),
         source,
-        modelLabel: source === 'ON_DEVICE' ? 'Gemini Nano (Firebase AI Logic)' : params.cloudModelName,
+        modelLabel: source === 'ON_DEVICE' ? 'Gemini Nano (Firebase AI Logic)' : cloudModel,
         latencyMs: totalMs,
         ttftMs: totalMs,
       };
@@ -413,9 +444,20 @@ async function executeHybridInference(params: {
       if (err instanceof RequestCancelledError) {
         throw new AIUnavailableError('Request cancelled.', 'CANCELLED');
       }
+      // Primary cloud model hung or failed before streaming anything: switch once to the fallback model
+      // (it then gets the normal retry/backoff treatment).
+      if (!streamedAnyToken && !params.signal?.aborted && canSwitchCloudModel()) {
+        console.warn(`[CloakVault] ${cloudModel} failed; falling back to ${FALLBACK_CLOUD_MODEL}.`, err);
+        lastError = err;
+        cloudModel = FALLBACK_CLOUD_MODEL;
+        attempt = -1;
+        continue;
+      }
       if (err instanceof RequestTimeoutError) {
         throw new AIUnavailableError(
-          'Cloud AI timed out before responding. If you are using Incognito or blocking third-party cookies/scripts (reCAPTCHA), try a normal browser window or allow cookies for this site and retry.',
+          likelyOnDevice
+            ? 'Gemini Nano took too long on this device. Try a shorter document, or allow cloud routing for this task.'
+            : 'Cloud AI timed out before responding. If you are using Incognito or blocking third-party cookies/scripts (reCAPTCHA), try a normal browser window or allow cookies for this site and retry.',
           'TIMEOUT'
         );
       }
@@ -494,13 +536,13 @@ async function executeHybridInference(params: {
   // No silent fake fallback: return a clear, platform-appropriate message without raw capability dumps.
   if (!params.allowCloud) {
     throw new AIUnavailableError(
-      'On-device AI is currently unavailable in this browser, so nothing was sent to the cloud. Allow sanitized cloud fallback to continue.',
+      'This task is locked to Gemini Nano on this device, so nothing was sent to the cloud. Allow sanitized cloud fallback to continue.',
       'NANO_REQUIRED'
     );
   }
   if (isOffline) {
     throw new AIUnavailableError(
-      'You are offline and on-device AI is currently unavailable in this browser. Reconnect to use sanitized cloud AI.',
+      'You are offline and Gemini Nano is not ready on this device yet. Reconnect to use sanitized cloud AI.',
       'OFFLINE_NO_NANO'
     );
   }

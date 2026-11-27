@@ -19,6 +19,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "out")
 FRAMES = os.path.join(OUT, "frames")
 BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5173").rstrip("/")
+NANO_SCENES = os.environ.get("NANO_SCENES") == "1"  # only with a Chrome where Gemini Nano is really available
+CDP_URL = os.environ.get("CDP_URL", "")  # e.g. http://127.0.0.1:9333 for the Nano-enabled Chrome
 PAD = 0.3  # breathing room after each narration line
 CHAPTER_SECS = 2.1  # illustrated chapter cards (no narration)
 VO_LEAD = 0.25  # narration starts this long after the scene cut
@@ -103,6 +105,13 @@ def route_row(task, mode, device):
     )
 
 
+PANEL_OFFLINE = (
+    f'<div style="{MONO};font-size:12px;letter-spacing:.16em;color:#697083;text-transform:uppercase">Air-gap test</div>'
+    f'<div style="{SERIF};font-size:34px;line-height:1.1;margin:8px 0 6px;color:#0E1015">Network: offline.</div>'
+    '<div style="font-size:15px;color:#4A5061">Routing locked to ONLY_ON_DEVICE · Gemini Nano in Chrome</div>'
+)
+
+
 PANEL_ROUTING = (
     f'<div style="{MONO};font-size:12px;letter-spacing:.16em;color:#697083;text-transform:uppercase">Firebase AI Logic · per-task routing</div>'
     f'<div style="{SERIF};font-size:34px;line-height:1.1;margin:8px 0 12px;color:#0E1015">Cheapest safe place, every time.</div>'
@@ -110,7 +119,7 @@ PANEL_ROUTING = (
     + route_row("Triage summary", "PREFER_ON_DEVICE", True)
     + route_row("Streaming Q&amp;A", "PREFER_ON_DEVICE", True)
     + route_row("Deep risk audit + redlines", "PREFER_IN_CLOUD", False)
-    + '<div style="margin-top:12px;font-size:14px;color:#697083">No Nano in this browser → SDK falls back to cloud Gemini. Modes live in Remote Config.</div>'
+    + '<div style="margin-top:12px;font-size:14px;color:#697083">Gemini Nano in Chrome serves on-device tasks; elsewhere the SDK routes sanitized tokens to cloud Gemini. Modes live in Remote Config.</div>'
 )
 
 PANEL_EXTENSION = (
@@ -136,11 +145,24 @@ async def main():
         os.remove(os.path.join(FRAMES, f))
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(channel="chrome", args=["--hide-scrollbars"])
-        ctx = await browser.new_context(viewport={"width": 1600, "height": 900}, device_scale_factor=1.2)
-        await ctx.add_init_script(OVERLAY)
-        page = await ctx.new_page()
-        await page.goto(BASE + "/", wait_until="networkidle")
+        if CDP_URL:
+            # Drive an already-running Chrome (e.g. one with Gemini Nano installed) so the
+            # on-device scenes are genuine. Size it to 1600x900 @1.2 = 1920x1080 frames.
+            browser = await p.chromium.connect_over_cdp(CDP_URL)
+            ctx = browser.contexts[0]
+            await ctx.add_init_script(OVERLAY)
+            page = await ctx.new_page()
+            boot = await ctx.new_cdp_session(page)
+            await boot.send("Emulation.setDeviceMetricsOverride",
+                            {"width": 1600, "height": 900, "deviceScaleFactor": 1.2, "mobile": False})
+            origin = BASE.split("/", 3)[:3]
+            await boot.send("Storage.clearDataForOrigin", {"origin": "/".join(origin), "storageTypes": "all"})
+        else:
+            browser = await p.chromium.launch(channel="chrome", args=["--hide-scrollbars"])
+            ctx = await browser.new_context(viewport={"width": 1600, "height": 900}, device_scale_factor=1.2)
+            await ctx.add_init_script(OVERLAY)
+            page = await ctx.new_page()
+        await page.goto(BASE + "/?rec=1", wait_until="networkidle")  # neutral header pill (see NanoStatusControl)
         await page.evaluate("document.fonts.ready")
         await page.wait_for_timeout(800)
 
@@ -159,6 +181,33 @@ async def main():
 
         markers = []
         cues = []  # sound-design cues: {t, name, gain}
+        holds = []  # chapter cards / zooms: build.py never speeds these up
+        cuts = []  # skipped on-device waits: {from, to, skipped} — build.py removes [from, to) from the timeline
+        skipped = {"total": 0.0}
+        SCREENCAST = {"format": "jpeg", "quality": 92, "maxWidth": 1920, "maxHeight": 1080}
+
+        async def wait_on_device(locator, show=3.0, timeout=300000, what=None, note=None):
+            """Show the first `show` seconds of a genuine on-device wait, then pause capture until the real
+            result arrives and resume with an on-screen "N s skipped" badge. Never alters the result itself."""
+            task = asyncio.ensure_future(locator.wait_for(timeout=timeout))
+            done, _ = await asyncio.wait({task}, timeout=show)
+            if task in done:
+                await task
+                return
+            await page.evaluate("() => window.__cvPause(true)")
+            cut_from = time.time()
+            await cdp.send("Page.stopScreencast")
+            await task
+            secs = round(time.time() - cut_from)
+            await page.evaluate("([s, w, n]) => window.__cvSkip(s, w, n)", [secs, what, note])
+            await page.wait_for_timeout(120)
+            await cdp.send("Page.startScreencast", SCREENCAST)
+            cut_to = time.time()
+            cuts.append({"from": cut_from, "to": cut_to, "skipped": secs})
+            skipped["total"] += cut_to - cut_from
+            cue("whoosh", 0.4)
+            await page.evaluate("() => window.__cvPause(false)")
+            print(f"  cut: {secs}s of on-device inference skipped")
 
         def cue(name, gain=1.0, at=None):
             cues.append({"t": at if at is not None else time.time(), "name": name, "gain": gain})
@@ -177,14 +226,18 @@ async def main():
             await page.mouse.click(mouse["x"], mouse["y"])
 
         async def caps(scene_id):
+            # Captions are burned in by build.py from the narration timing (so speed-fitted scenes stay in
+            # sync). Set PAGE_CAPTIONS=1 to draw them in-page instead (legacy).
             await asyncio.sleep(VO_LEAD)
-            await page.evaluate("c => window.__cvCaptions(c)", caption_chunks(scene_id))
+            if os.environ.get("PAGE_CAPTIONS") == "1":
+                await page.evaluate("c => window.__cvCaptions(c)", caption_chunks(scene_id))
 
         async def card(html, sfx="whoosh"):
             cue(sfx, 0.7)
             await page.evaluate("h => window.__cvCard(h)", html)
 
         async def chapter(html):
+            h0 = time.time()
             await page.evaluate("() => window.__cvCursor(false)")
             cue("riser", 0.45)
             await card(html)
@@ -194,8 +247,11 @@ async def main():
             await page.evaluate("() => window.__cvCard(null)")
             await asyncio.sleep(0.5)
             await page.evaluate("() => window.__cvCursor(true)")
+            holds.append({"from": h0, "to": time.time()})
 
         async def zoom(sel, scale, hold):
+            h0 = time.time()
+            holds_next = {"from": h0}
             await page.evaluate("() => window.__cvCursor(false)")
             cue("whoosh", 0.3)
             await page.evaluate("([s, k]) => window.__cvZoom(s, k)", [sel, scale])
@@ -204,14 +260,17 @@ async def main():
             await page.evaluate("() => window.__cvZoom(null)")
             await asyncio.sleep(1.0)
             await page.evaluate("() => window.__cvCursor(true)")
+            holds.append({**holds_next, "to": time.time()})
 
         async def scene(scene_id, action):
             t0 = time.time()
+            sk0 = skipped["total"]
             markers.append({"id": scene_id, "t": t0})
             cap_task = asyncio.ensure_future(caps(scene_id))
             await action()
             await cap_task
-            left = DUR[scene_id] + VO_LEAD + PAD - (time.time() - t0)
+            # time cut out of the final video doesn't count toward the scene's on-screen length
+            left = DUR[scene_id] + VO_LEAD + PAD - (time.time() - t0 - (skipped["total"] - sk0))
             if left > 0:
                 await asyncio.sleep(left)
             print(f"{scene_id:<16} {time.time() - t0:6.2f}s")
@@ -220,7 +279,7 @@ async def main():
         await page.evaluate("h => window.__cvCard(h)", CARD_HOOK)
         await page.evaluate("() => window.__cvCursor(false)")
         await page.wait_for_timeout(700)
-        await cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 92, "maxWidth": 1920, "maxHeight": 1080})
+        await cdp.send("Page.startScreencast", SCREENCAST)
         await page.wait_for_timeout(400)
         rec_start = time.time()
         # hook chips flip from raw PII to tokens (timings mirror cards._chip)
@@ -294,7 +353,8 @@ async def main():
 
         async def s07():
             await click(page.get_by_text("Run Hybrid Audit", exact=True).first)
-            await page.get_by_text("/ 100").first.wait_for(timeout=45000)
+            await wait_on_device(page.get_by_text("/ 100").first, show=8.0, timeout=200000,
+                                 what="Cloud audit wait", note="Gemini via Firebase AI Logic")
             cue("confirm", 0.6)
             await zoom("aside[data-pane=inspector]", 1.45, 2.0)
 
@@ -322,16 +382,51 @@ async def main():
             await click(page.get_by_role("button", name="Ask", exact=True))
             await asyncio.sleep(0.8)
             await click(page.locator("button.block.w-full").first)
-            try:
-                await page.locator(r"text=/Total \d+ms/").first.wait_for(timeout=30000)
-            except Exception:
-                pass
+            if NANO_SCENES:
+                await move(1360, 300, steps=30)
+                await wait_on_device(page.locator(r"text=/Total \d+ms/").first)
+                cue("confirm", 0.5)
+                await zoom("aside[data-pane=inspector]", 1.4, 3.4)
+            else:
+                try:
+                    await page.locator(r"text=/Total \d+ms/").first.wait_for(timeout=30000)
+                except Exception:
+                    pass
 
         async def s11():
             await click(page.get_by_role("button", name=re.compile(r"^Telemetry")))
             await move(1250, 420, steps=30)
 
+        async def s12_nano():
+            # Genuine air-gap: lock routing to the device AND cut the network, then triage with Gemini Nano.
+            await click(page.locator("header button", has_text="Hybrid routing").first)
+            await asyncio.sleep(0.8)
+            await cdp.send("Network.enable")
+            await cdp.send("Network.emulateNetworkConditions", {
+                "offline": True, "latency": 0, "downloadThroughput": -1, "uploadThroughput": -1})
+            cue("pulse", 0.5)
+            await page.evaluate("h => window.__cvPanel(h)", PANEL_OFFLINE)
+            await asyncio.sleep(1.6)
+            await page.evaluate("() => window.__cvPanel(null)")
+            await click(page.get_by_role("button", name="Redacted View"))
+            await click(page.get_by_role("button", name=re.compile(r"^Risk Audit")))
+            await asyncio.sleep(0.5)
+            await click(page.get_by_role("button", name="Quick Triage"))
+            await move(700, 330, steps=30)
+            await wait_on_device(page.locator(r"text=/ON_DEVICE · \d+ms/").first)
+            cue("confirm", 0.6)
+            await page.evaluate("""() => { let el = document.querySelector('.paper-sheet');
+              while (el && !(el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== 'visible')) el = el.parentElement;
+              if (el) el.scrollTo({top: 0, behavior: 'smooth'}); }""")
+            await asyncio.sleep(0.5)
+            await zoom(".paper-sheet", 1.5, 3.2)
+            await cdp.send("Network.emulateNetworkConditions", {
+                "offline": False, "latency": 0, "downloadThroughput": -1, "uploadThroughput": -1})
+            await click(page.locator("header button", has_text="Air-gap").first)
+
         async def s12():
+            if NANO_SCENES:
+                return await s12_nano()
             await click(page.locator("header button", has_text="Hybrid routing").first)
             await asyncio.sleep(1.2)
             await click(page.get_by_role("button", name=re.compile(r"^Risk Audit")))
@@ -372,11 +467,16 @@ async def main():
         end = time.time() + 1.2
         await asyncio.sleep(1.2)
         await cdp.send("Page.stopScreencast")
-        await browser.close()
+        if CDP_URL:
+            await page.close()
+        else:
+            await browser.close()
 
-    json.dump({"start": rec_start, "end": end, "scenes": markers, "cues": cues, "vo_lead": VO_LEAD},
+    json.dump({"start": rec_start, "end": end, "scenes": markers, "cues": cues, "cuts": cuts, "holds": holds,
+               "vo_lead": VO_LEAD, "pad": PAD},
               open(os.path.join(OUT, "markers.json"), "w"), indent=2)
-    print(f"frames={n_frames}  length={end - markers[0]['t']:.1f}s")
+    cut_total = sum(c["to"] - c["from"] for c in cuts)
+    print(f"frames={n_frames}  length={end - markers[0]['t'] - cut_total:.1f}s  (cut {cut_total:.1f}s)")
 
 
 asyncio.run(main())

@@ -24,7 +24,7 @@
     },
     {
       "id": "s06_routing",
-      "vo": "Every AI task has its own Firebase AI Logic inference mode. Contextual P-I-I discovery runs only on device. Triage and chat prefer Gemini Nano on device. Deep audits prefer the cloud. This browser has no Nano, so the SDK falls back to cloud Gemini automatically, and Remote Config can retune every mode live."
+      "vo": "Every AI task has its own Firebase AI Logic inference mode. Contextual P-I-I discovery runs only on device. Triage and chat prefer Gemini Nano on device. Deep audits prefer the cloud. Wherever Nano is missing, the SDK switches to cloud Gemini automatically, and Remote Config can retune every mode live."
     },
     {
       "id": "s07_audit",
@@ -40,7 +40,7 @@
     },
     {
       "id": "s10_ask",
-      "vo": "Ask a follow-up, and the answer streams token by token, labelled with where it actually ran, and its time to first token."
+      "vo": "Ask a follow-up, and Gemini Nano answers right here in Chrome. The label shows where it really ran, and its true latency on this four-core laptop. We skipped the wait, not the work."
     },
     {
       "id": "s11_telemetry",
@@ -48,7 +48,7 @@
     },
     {
       "id": "s12_airgap",
-      "vo": "Switch on air-gap mode, and every task is locked to the device. With Gemini Nano installed, triage, chat and audits keep working fully offline. Without it, CloakVault refuses, and nothing leaves the machine."
+      "vo": "Now switch on air-gap mode, and pull the network. Every task is locked to the device, and Gemini Nano still triages the contract, fully offline. Nothing leaves the machine."
     },
     {
       "id": "s13_samples",

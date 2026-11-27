@@ -2,6 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Cloud, Cpu, Download, Loader2, ShieldCheck, X } from 'lucide-react';
 import type { SystemCapabilities } from '../types/vault';
 
+/** Demo-recording mode, enabled with `?rec=1` and kept for the tab's session. */
+function isRecordingMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (new URLSearchParams(window.location.search).get('rec') === '1') {
+      sessionStorage.setItem('cv-rec', '1');
+      return true;
+    }
+    return sessionStorage.getItem('cv-rec') === '1';
+  } catch {
+    return false;
+  }
+}
+
 interface NanoStatusControlProps {
   capabilities: SystemCapabilities;
   onDownloadNano: () => void;
@@ -58,6 +72,21 @@ export function NanoStatusControl({
         <Cpu className="h-3.5 w-3.5" />
         <span>Gemini Nano · on-device</span>
         <span className="h-1.5 w-1.5 animate-pulse-ring rounded-full bg-emerald-500" />
+      </div>
+    );
+  }
+
+  // Recording mode (?rec=1): when Nano is NOT actually serving, show a neutral, truthful "Hybrid AI"
+  // pill instead of install/fallback states. It never claims on-device inference: the green pill above
+  // is only reachable when Chrome genuinely reports the model available.
+  if (isRecordingMode()) {
+    return (
+      <div
+        className="flex items-center gap-1.5 rounded-full border border-[#E5E7EC] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#3A3F4D]"
+        title="Hybrid inference via Firebase AI Logic. PII is redacted locally before any request."
+      >
+        <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+        <span>Hybrid AI · PII shielded locally</span>
       </div>
     );
   }
